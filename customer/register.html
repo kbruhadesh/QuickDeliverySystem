@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up | HDL Delivery</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .auth-page {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px;
+        }
+
+        .auth-card {
+            width: 100%;
+            max-width: 480px;
+            padding: 40px 32px;
+        }
+
+        .auth-title {
+            text-align: center;
+            font-size: 1.75rem;
+            margin-bottom: 32px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="auth-page">
+        <div class="card auth-card">
+            <h1 class="auth-title">Create your account</h1>
+
+            <form id="register-form">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="reg-name" class="input-control" placeholder="E.g. Priya Nair" required>
+                </div>
+                <div class="form-group">
+                    <label>Email address</label>
+                    <input type="email" id="reg-email" class="input-control" placeholder="you@example.com" required>
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" id="reg-phone" class="input-control" placeholder="+91 XXXXX XXXXX" required>
+                </div>
+                <div class="row" style="margin-bottom:20px; gap:16px;">
+                    <div class="col" style="margin-bottom:0;">
+                        <label
+                            style="display:block; margin-bottom:8px; font-size:0.9rem; font-weight:500;">Password</label>
+                        <input type="password" id="reg-password" class="input-control" minlength="8"
+                            placeholder="Min 8 chars" required>
+                    </div>
+                    <div class="col" style="margin-bottom:0;">
+                        <label style="display:block; margin-bottom:8px; font-size:0.9rem; font-weight:500;">Confirm
+                            Password</label>
+                        <input type="password" id="reg-confirm" class="input-control" required>
+                    </div>
+                </div>
+
+                <div id="reg-error" class="error-text" style="margin-bottom:16px; text-align:center;"></div>
+
+                <button type="submit" class="btn btn-primary btn-block" id="reg-btn">Sign Up</button>
+            </form>
+
+            <div style="text-align:center; margin-top:24px;">
+                <span style="color:var(--text-secondary)">Already have an account?</span>
+                <a href="login.html" style="color:var(--accent); font-weight:600; margin-left:8px;">Log In</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        document.getElementById('register-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pass = document.getElementById('reg-password').value;
+            const conf = document.getElementById('reg-confirm').value;
+            const err = document.getElementById('reg-error');
+
+            if (pass !== conf) {
+                err.style.display = 'block';
+                err.textContent = "Passwords do not match!";
+                return;
+            }
+            err.style.display = 'none';
+
+            const n = document.getElementById('reg-name').value;
+            const em = document.getElementById('reg-email').value;
+            const ph = document.getElementById('reg-phone').value;
+            const btn = document.getElementById('reg-btn');
+
+            window.HDL_CUSTOMER.Auth.register(n, em, ph, pass, btn);
+        });
+    </script>
+</body>
+
+</html>

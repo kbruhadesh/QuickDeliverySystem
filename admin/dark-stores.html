@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dark Stores | HDL Quick-Commerce</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .stores-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 24px;
+        }
+        
+        .store-card {
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .store-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+        
+        .store-name {
+            font-size: 1.25rem;
+            font-family: var(--font-heading);
+            margin-bottom: 4px;
+        }
+
+        .store-location {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        
+        .progress-bar-container {
+            height: 8px;
+            background: var(--bg-muted);
+            border-radius: 4px;
+            margin-top: 12px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app-container">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="logo-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"
+                    style="color:var(--accent);">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                <h1>HDL System</h1>
+            </div>
+
+            <nav>
+                <a href="dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+                <a href="orders.html" class="nav-item"><span>📦</span> Orders</a>
+                <a href="map.html" class="nav-item"><span>🗺️</span> Live Map</a>
+                <a href="drones.html" class="nav-item"><span>🚁</span> Drone Fleet</a>
+                <a href="assignments.html" class="nav-item"><span>📋</span> Assignments</a>
+                <a href="analytics.html" class="nav-item"><span>📈</span> Analytics</a>
+                <a href="dark-stores.html" class="nav-item active"><span>🏪</span> Dark Stores</a>
+                <div class="nav-divider"></div>
+                <a href="simulation.html" class="nav-item admin-only dev-only"><span>🎮</span> Simulation</a>
+                <a href="benchmarks.html" class="nav-item admin-only dev-only"><span>⚡</span> Benchmarks</a>
+                <a href="settings.html" class="nav-item admin-only"><span>⚙️</span> Settings</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <header id="topbar">
+                <h2 class="page-title">Dark Stores</h2>
+                <div class="status-center">
+                    <div class="status-dot tooltip"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="user-controls">
+                    <span class="user-name">User</span>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div id="page-content">
+                <div class="container">
+                    <div style="display:flex; justify-content:space-between; margin-bottom: 24px;">
+                        <h3 style="font-size:1.5rem; font-family:var(--font-heading);">Operational Hubs</h3>
+                        <button class="btn btn-primary">+ Add Store</button>
+                    </div>
+
+                    <div class="stores-grid" id="stores-container">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/mock-data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.HDL.Router) window.HDL.Router.init();
+            
+            const container = document.getElementById('stores-container');
+            const stores = window.HDL.mockData.darkStores || [];
+            
+            if(stores.length === 0) {
+                container.innerHTML = `<p style="color:var(--text-secondary);">No dark stores configured yet.</p>`;
+                return;
+            }
+            
+            stores.forEach(store => {
+                const perc = Math.round((store.stock / store.maxStock) * 100);
+                let colorClass = 'success';
+                if(perc < 30) colorClass = 'warning';
+                if(perc < 10) colorClass = 'danger';
+                
+                container.innerHTML += `
+                    <div class="card store-card">
+                        <div class="store-header">
+                            <div>
+                                <div class="store-name">${store.name}</div>
+                                <div class="store-location">Pincodes: ${store.pincodes.join(', ')}</div>
+                            </div>
+                            <span class="badge ${store.status === 'Active' ? 'success' : 'warning'}">${store.status}</span>
+                        </div>
+                        
+                        <div class="stat-row">
+                            <span style="color:var(--text-secondary);">Active Orders</span>
+                            <strong>${store.activeOrders}</strong>
+                        </div>
+                        <div class="stat-row">
+                            <span style="color:var(--text-secondary);">Drones Stationed</span>
+                            <strong>${store.dronesStationed}</strong>
+                        </div>
+                        
+                        <div style="margin-top: 16px;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600;">
+                                <span>Inventory Capacity</span>
+                                <span style="color:var(--${colorClass})">${perc}%</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: ${perc}%; background: var(--${colorClass});"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    </script>
+</body>
+</html>

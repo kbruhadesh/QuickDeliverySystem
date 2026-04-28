@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Fleet | HDL Quick-Commerce</title>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .battery-bar-container {
+            width: 60px;
+            height: 6px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 8px;
+        }
+
+        .battery-bar {
+            height: 100%;
+            background: var(--success);
+        }
+
+        .battery-bar.warning {
+            background: var(--warning);
+        }
+
+        .battery-bar.danger {
+            background: var(--danger);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+        <aside id="sidebar">
+            <div class="logo-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"
+                    style="color:var(--accent);">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                <h1>HDL System</h1>
+            </div>
+            <nav>
+                <a href="dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+                <a href="orders.html" class="nav-item"><span>📦</span> Orders</a>
+                <a href="map.html" class="nav-item"><span>🗺️</span> Live Map</a>
+                <a href="drones.html" class="nav-item active"><span>🚁</span> Drone Fleet</a>
+                <a href="assignments.html" class="nav-item"><span>📋</span> Assignments</a>
+                <a href="analytics.html" class="nav-item"><span>📈</span> Analytics</a>
+                <a href="dark-stores.html" class="nav-item">
+                    <span>??</span> Dark Stores
+                </a>
+                <div class="nav-divider"></div>
+                <a href="simulation.html" class="nav-item admin-only dev-only"><span>🎮</span> Simulation</a>
+                <a href="benchmarks.html" class="nav-item admin-only dev-only"><span>⚡</span> Benchmarks</a>
+                <a href="settings.html" class="nav-item admin-only"><span>⚙️</span> Settings</a>
+            </nav>
+        </aside>
+
+        <main id="main-content">
+            <header id="topbar">
+                <h2 class="page-title">Drone Fleet</h2>
+                <div class="status-center">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="user-controls">
+                    <span class="user-name">User</span>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div id="page-content">
+                <div class="container">
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                        <h3 style="font-size: 1.25rem;">Fleet Management</h3>
+                        <button class="btn btn-primary admin-only" onclick="openDroneModal()">+ Add Drone</button>
+                    </div>
+
+                    <div class="card" style="padding: 0; overflow:hidden;">
+                        <div class="table-container">
+                            <table id="drones-table">
+                                <thead>
+                                    <tr>
+                                        <th>Drone ID</th>
+                                        <th>Model</th>
+                                        <th>Max Payload</th>
+                                        <th>Battery</th>
+                                        <th>Status</th>
+                                        <th>Last Updated</th>
+                                        <th class="admin-only">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- JS populated -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Drone Modal -->
+    <div class="modal-overlay" id="drone-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="drone-modal-title">Add Drone</h2>
+                <button class="btn-close" onclick="window.HDL.UI.closeModal('drone-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-drone-idx" value="-1">
+                <div class="form-group">
+                    <label>Drone ID</label>
+                    <input type="text" id="drone-id" class="input-control" placeholder="E.g. D9" required>
+                </div>
+                <div class="form-group">
+                    <label>Model</label>
+                    <input type="text" id="drone-model" class="input-control" placeholder="E.g. AeroSwift V1" required>
+                </div>
+                <div class="form-group">
+                    <label>Max Payload (kg)</label>
+                    <input type="number" id="drone-payload" class="input-control" min="0.5" max="25" step="0.5"
+                        value="2.5" required>
+                </div>
+                <div class="form-group">
+                    <label>Battery Capacity (%)</label>
+                    <input type="number" id="drone-battery" class="input-control" min="0" max="100" value="100"
+                        required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="window.HDL.UI.closeModal('drone-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveDrone()">Save Drone</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.HDL.Router) window.HDL.Router.init();
+            renderDrones();
+        });
+
+        function renderDrones() {
+            const tbody = document.querySelector('#drones-table tbody');
+            let html = '';
+
+            const role = window.HDL.Auth.getUser()?.role;
+            const isAdmin = role === 'admin' || role === 'developer'; // Adjusting based on logic if dev has admin perms here or just admin. Dev can see .dev-only. We use admin-only class. Let's rely on router.js display block/none, so we output the column but it gets hidden by CSS if applied correctly. Actually, Router.js checks '.admin-only'. We will add class to the <td>.
+
+            window.HDL.mockData.drones.forEach((d, index) => {
+                const sClass = window.HDL.UI.setBadgeColor(d.status);
+                const date = window.HDL.UI.formatDateTime(d.lastUpdated);
+
+                let battClass = '';
+                if (d.battery < 20) battClass = 'danger';
+                else if (d.battery < 50) battClass = 'warning';
+
+                html += `
+          <tr>
+            <td><strong>${d.id}</strong></td>
+            <td>${d.model}</td>
+            <td>${d.maxPayload.toFixed(1)} kg</td>
+            <td>
+              <span>${Math.floor(d.battery)}%</span>
+              <div class="battery-bar-container">
+                <div class="battery-bar ${battClass}" style="width: ${d.battery}%"></div>
+              </div>
+            </td>
+            <td><span class="badge ${sClass}">${d.status}</span></td>
+            <td>${date}</td>
+            <td class="admin-only">
+              <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem; margin-right:4px;" onclick="openDroneModal(${index})">Edit</button>
+              <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteDrone(${index})">Delete</button>
+            </td>
+          </tr>
+        `;
+            });
+            tbody.innerHTML = html;
+
+            // Re-apply role based UI since we re-rendered DOM elements
+            if (window.HDL.Router) window.HDL.Router.applyRoleBasedUI();
+        }
+
+        function openDroneModal(index = -1) {
+            document.getElementById('edit-drone-idx').value = index;
+            if (index === -1) {
+                document.getElementById('drone-modal-title').textContent = 'Add Drone';
+                document.getElementById('drone-id').value = '';
+                document.getElementById('drone-model').value = '';
+                document.getElementById('drone-payload').value = '2.5';
+                document.getElementById('drone-battery').value = '100';
+            } else {
+                const d = window.HDL.mockData.drones[index];
+                document.getElementById('drone-modal-title').textContent = 'Edit Drone';
+                document.getElementById('drone-id').value = d.id;
+                document.getElementById('drone-model').value = d.model;
+                document.getElementById('drone-payload').value = d.maxPayload;
+                document.getElementById('drone-battery').value = d.battery;
+            }
+            window.HDL.UI.openModal('drone-modal');
+        }
+
+        function saveDrone() {
+            const idx = parseInt(document.getElementById('edit-drone-idx').value);
+            const id = document.getElementById('drone-id').value;
+            const model = document.getElementById('drone-model').value;
+            const payload = parseFloat(document.getElementById('drone-payload').value);
+            const battery = parseFloat(document.getElementById('drone-battery').value);
+
+            if (!id || !model) {
+                window.HDL.UI.showToast("Please fill all required fields", "warning");
+                return;
+            }
+
+            if (idx === -1) {
+                window.HDL.mockData.drones.push({
+                    id, model, maxPayload: payload, battery, status: 'available', lastUpdated: new Date().toISOString()
+                });
+                window.HDL.UI.showToast(`Drone ${id} added`, "success");
+            } else {
+                const d = window.HDL.mockData.drones[idx];
+                d.id = id; d.model = model; d.maxPayload = payload; d.battery = battery;
+                d.lastUpdated = new Date().toISOString();
+                window.HDL.UI.showToast(`Drone ${id} updated`, "success");
+            }
+
+            window.HDL.UI.closeModal('drone-modal');
+            renderDrones();
+        }
+
+        function deleteDrone(index) {
+            const d = window.HDL.mockData.drones[index];
+
+            // Validation edge case: cannot remove active drone
+            if (d.status === 'in-flight' || d.status === 'assigned') {
+                window.HDL.UI.showToast(`Cannot remove an active drone (${d.id})`, "error");
+                return;
+            }
+
+            window.HDL.UI.showConfirm(`Are you sure you want to remove Drone ${d.id}?`, () => {
+                window.HDL.mockData.drones.splice(index, 1);
+                renderDrones();
+                window.HDL.UI.showToast(`Drone ${d.id} removed`, "success");
+            });
+        }
+    </script>
+</body>
+
+</html>

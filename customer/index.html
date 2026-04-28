@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HDL | Drone Delivery in 30 Mins</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/map.css">
+
+    <style>
+        /* Landing Overrides */
+        .hero {
+            text-align: center;
+            padding: 80px 16px 60px 16px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 24px;
+            color: var(--text-primary);
+            line-height: 1.2;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .hero-visual {
+            margin-top: 40px;
+            display: flex;
+            justify-content: center;
+            opacity: 0.9;
+        }
+
+        .how-it-works {
+            padding: 80px 16px;
+            background: var(--bg-card);
+        }
+
+        .how-steps {
+            display: flex;
+            gap: 24px;
+            max-width: 1000px;
+            margin: 40px auto 0 auto;
+            flex-wrap: wrap;
+        }
+
+        .step-card {
+            flex: 1;
+            min-width: 280px;
+            text-align: center;
+            padding: 24px;
+        }
+
+        .step-circle {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--accent-light);
+            color: var(--accent);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0 auto 16px auto;
+        }
+
+        .features {
+            padding: 80px 16px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-top: 40px;
+        }
+
+        @media(max-width: 768px) {
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .feature-item {
+            display: flex;
+            gap: 16px;
+            padding: 24px;
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .feature-icon {
+            color: var(--accent);
+        }
+
+        .cta-strip {
+            padding: 60px 16px;
+            background: var(--accent-light);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                HDL
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link active">Home</a>
+                <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+                <a href="track.html" class="nav-link auth-only">Track</a>
+            </div>
+            <div class="nav-profile auth-only" onclick="window.location.href='profile.html'">
+                <div
+                    style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                    <span class="user-greeting">U</span>
+                </div>
+            </div>
+            <div class="nav-profile guest-only">
+                <a href="login.html" class="btn btn-outline" style="min-height:36px; padding:6px 16px;">Log In</a>
+            </div>
+            <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="grocery.html" class="nav-link">Groceries</a>
+        <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+        <a href="track.html" class="nav-link auth-only">Track</a>
+        <a href="profile.html" class="nav-link auth-only">Profile</a>
+        <a href="login.html" class="nav-link guest-only">Log In / Register</a>
+    </div>
+
+    <div class="page-wrapper" style="padding-bottom: 0;">
+
+        <!-- Ticker Banner -->
+        <div class="ticker-wrap">
+            <div class="ticker-content" id="live-ticker">
+                Loading live stats...
+            </div>
+        </div>
+
+        <!-- Hero -->
+        <section class="hero">
+            <h1>The future of delivery — <span style="color: var(--accent)">by drone.</span></h1>
+            <p>Experience 10-minute grocery delivery and instant person-to-person drone shuttles.</p>
+            <div class="hero-buttons" style="gap:24px; margin-top:32px;">
+                <div class="card" style="flex:1; cursor:pointer; min-width:260px; text-align:left; padding:24px; transition:transform 0.2s; background:var(--accent-light); border-color:var(--border);" onclick="window.location.href='grocery.html'">
+                    <div style="font-size:2.5rem; margin-bottom:12px;">🛒</div>
+                    <h3 style="font-size:1.5rem; margin-bottom:8px; color:var(--accent-dark);">10-Min Groceries</h3>
+                    <p style="color:var(--accent); font-weight:500; font-size:0.95rem;">Order daily essentials instantly.</p>
+                </div>
+                <div class="card" style="flex:1; cursor:pointer; min-width:260px; text-align:left; padding:24px; transition:transform 0.2s;" onclick="window.location.href='place-order.html'">
+                    <div style="font-size:2.5rem; margin-bottom:12px;">📦</div>
+                    <h3 style="font-size:1.5rem; margin-bottom:8px;">Send a Package</h3>
+                    <p style="color:var(--text-secondary); font-weight:500; font-size:0.95rem;">Local A to B parcel delivery.</p>
+                </div>
+            </div>
+
+            <div class="hero-visual">
+                <svg width="200" height="100" viewBox="0 0 200 100">
+                    <path d="M10 80 Q 50 10 120 40 T 190 20" fill="none" stroke="var(--accent)" stroke-width="3"
+                        stroke-dasharray="6,6" />
+                    <svg x="160" y="5" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" style="color:var(--text-primary)">
+                        <path stroke-linecap="round" stroke-linejoin="round"
+                            d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                    </svg>
+                </svg>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section class="how-it-works">
+            <h2 style="text-align:center; font-size: 2rem;">How It Works</h2>
+            <div class="how-steps">
+                <div class="step-card">
+                    <div class="step-circle">1</div>
+                    <h3 style="margin-bottom:8px; font-size:1.1rem;">Place your order</h3>
+                    <p style="color:var(--text-secondary); font-size:0.95rem;">Select your pickup and delivery locations
+                        precisely on our interactive map.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-circle">2</div>
+                    <h3 style="margin-bottom:8px; font-size:1.1rem;">Drone gets assigned</h3>
+                    <p style="color:var(--text-secondary); font-size:0.95rem;">Our backend finds the best available
+                        drone to execute your delivery instantly.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-circle">3</div>
+                    <h3 style="margin-bottom:8px; font-size:1.1rem;">Track live</h3>
+                    <p style="color:var(--text-secondary); font-size:0.95rem;">Watch your drone's live GPS location as
+                        it approaches your doorstep.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="features">
+            <h2 style="text-align:center; font-size: 2rem;">Why Drone Delivery?</h2>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom:4px;">Under 30 min</h4>
+                        <p style="color:var(--text-secondary); font-size:0.9rem;">Faster than any courier. We skip the
+                            roads and fly direct.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M16 4h4v4"></path>
+                            <path d="M14 10l6-6"></path>
+                            <path d="M8 20H4v-4"></path>
+                            <path d="M10 14l-6 6"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom:4px;">Zero traffic delays</h4>
+                        <p style="color:var(--text-secondary); font-size:0.9rem;">Road blocks? Traffic jams? Not a
+                            problem for our fleet.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom:4px;">Live GPS tracking</h4>
+                        <p style="color:var(--text-secondary); font-size:0.9rem;">See every meter of the journey
+                            directly on your app.</p>
+                    </div>
+                </div>
+                <div class="feature-item">
+                    <div class="feature-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h4 style="margin-bottom:4px;">Safe & regulated</h4>
+                        <p style="color:var(--text-secondary); font-size:0.9rem;">Fully compliant with all aviation and
+                            neighborhood standards.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="cta-strip">
+            <h2 style="font-size: 2rem; margin-bottom: 24px;">Track an active order?</h2>
+            <button class="btn btn-primary" style="padding: 14px 40px; font-size: 1.1rem;" onclick="window.location.href='track.html'">Track Now</button>
+        </div>
+
+    </div>
+
+    <footer class="footer">
+        <div style="display:flex; justify-content:center; gap:24px; margin-bottom:12px; font-weight:500;">
+            <a href="#">About</a>
+            <a href="#">Contact</a>
+            <a href="#">Careers</a>
+            <a href="#">Terms</a>
+        </div>
+        <p>© 2026 HDL Drone Delivery.</p>
+    </footer>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/ui.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const stats = window.HDL_CUSTOMER.MOCK_LIVE_STATS;
+            const text = `${stats.active_deliveries} deliveries active right now · ${stats.available_drones} drones available pending assignments · Avg delivery time today: ${stats.avg_delivery_min} min`;
+            // Repeat to make loop smooth
+            document.getElementById('live-ticker').innerHTML = `
+        <span style="margin-right:50px">${text}</span>
+        <span style="margin-right:50px">${text}</span>
+        <span style="margin-right:50px">${text}</span>
+      `;
+        });
+    </script>
+</body>
+
+</html>

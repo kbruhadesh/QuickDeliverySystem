@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benchmarks | HDL Quick-Commerce</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .benchmark-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 24px;
+        }
+
+        @media(max-width: 900px) {
+            .benchmark-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .config-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .radio-group,
+        .check-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .check-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .check-label input {
+            accent-color: var(--accent);
+        }
+
+        .check-label:hover {
+            color: var(--text-primary);
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 8px;
+            background: var(--bg-surface);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 16px;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: var(--accent);
+            transition: width 3s linear;
+        }
+
+        .results-panel {
+            display: none;
+        }
+
+        .chart-box {
+            height: 300px;
+            margin-top: 24px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+        <aside id="sidebar">
+            <div class="logo-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"
+                    style="color:var(--accent);">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5-10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                <h1>HDL System</h1>
+            </div>
+            <nav>
+                <a href="dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+                <a href="orders.html" class="nav-item"><span>📦</span> Orders</a>
+                <a href="map.html" class="nav-item"><span>🗺️</span> Live Map</a>
+                <a href="drones.html" class="nav-item"><span>🚁</span> Drone Fleet</a>
+                <a href="assignments.html" class="nav-item"><span>📋</span> Assignments</a>
+                <a href="analytics.html" class="nav-item"><span>📈</span> Analytics</a>
+                <a href="dark-stores.html" class="nav-item">
+                    <span>??</span> Dark Stores
+                </a>
+                <div class="nav-divider"></div>
+                <a href="simulation.html" class="nav-item admin-only dev-only"><span>🎮</span> Simulation</a>
+                <a href="benchmarks.html" class="nav-item active admin-only dev-only"><span>⚡</span> Benchmarks</a>
+                <a href="settings.html" class="nav-item admin-only"><span>⚙️</span> Settings</a>
+            </nav>
+        </aside>
+
+        <main id="main-content">
+            <header id="topbar">
+                <h2 class="page-title">Algorithm Benchmarks</h2>
+                <div class="status-center">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="user-controls">
+                    <span class="user-name">User</span>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div id="page-content">
+                <div class="container benchmark-grid">
+
+                    <!-- Config Panel -->
+                    <div class="config-panel">
+                        <h3 style="margin-bottom: 24px; font-size: 1.1rem;">Benchmark Configuration</h3>
+
+                        <h4 style="font-size: 0.9rem; color: var(--text-primary); margin-bottom: 12px;">Order Volume
+                        </h4>
+                        <div class="radio-group" id="benchmark-orders">
+                            <label class="check-label"><input type="radio" name="orderCount" value="10"> 10
+                                Orders</label>
+                            <label class="check-label"><input type="radio" name="orderCount" value="50" checked> 50
+                                Orders</label>
+                            <label class="check-label"><input type="radio" name="orderCount" value="100"> 100
+                                Orders</label>
+                            <label class="check-label"><input type="radio" name="orderCount" value="200"> 200
+                                Orders</label>
+                        </div>
+
+                        <h4 style="font-size: 0.9rem; color: var(--text-primary); margin-bottom: 12px;">Algorithms</h4>
+                        <div class="check-group">
+                            <label class="check-label"><input type="checkbox" id="algo-greedy" checked> Greedy
+                                Heuristic</label>
+                            <label class="check-label"><input type="checkbox" id="algo-ortools" checked>
+                                OR-Tools</label>
+                        </div>
+
+                        <button class="btn btn-primary" id="run-bench-btn" style="width:100%"
+                            onclick="runBenchmark()">Run Benchmark</button>
+
+                        <div class="progress-container" id="bench-progress-wrap">
+                            <div class="progress-bar" id="bench-progress"></div>
+                        </div>
+                        <div id="bench-status-text"
+                            style="text-align:center; margin-top:8px; font-size:0.85rem; color:var(--text-secondary); display:none;">
+                            Initializing...</div>
+                    </div>
+
+                    <!-- Results Area -->
+                    <div>
+                        <div class="results-panel card" id="results-panel"
+                            style="padding:0; overflow:hidden; margin-bottom: 24px;">
+                            <div style="padding: 20px; border-bottom: 1px solid var(--border);">
+                                <h3 style="margin:0; font-size:1.1rem;">Benchmark Results</h3>
+                            </div>
+                            <div class="table-container">
+                                <table id="bench-results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Order Count</th>
+                                            <th>Algorithm</th>
+                                            <th>Solve Time (ms)</th>
+                                            <th>Avg Delivery (mins)</th>
+                                            <th>Battery Efficiency</th>
+                                            <th>Violations</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="bench-results-body">
+                                        <!-- JS Populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div style="padding: 24px; border-top: 1px solid var(--border);">
+                                <h4 style="margin-bottom: 16px;">Algorithm Comparison (Solve Time vs Delivery)</h4>
+                                <div class="chart-box">
+                                    <canvas id="bench-chart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Previous Runs -->
+                        <div class="card" style="padding:0; overflow:hidden;">
+                            <div style="padding: 20px; border-bottom: 1px solid var(--border);">
+                                <h3 style="margin:0; font-size:1.1rem;">Previous Runs</h3>
+                            </div>
+                            <div class="table-container">
+                                <table id="prev-runs-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Timestamp</th>
+                                            <th>Configuration</th>
+                                            <th>Key Result</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- JS Populated -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        let benchChartIns = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.HDL.Router) window.HDL.Router.init();
+            renderPreviousRuns();
+        });
+
+        function renderPreviousRuns() {
+            const tbody = document.querySelector('#prev-runs-table tbody');
+            let html = '';
+            window.HDL.mockData.benchmarks.forEach(b => {
+                html += `
+          <tr>
+            <td>${window.HDL.UI.formatDateTime(b.timestamp)}</td>
+            <td>${b.config}</td>
+            <td><span class="badge info">${b.result}</span></td>
+          </tr>
+        `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        function runBenchmark() {
+            const btn = document.getElementById('run-bench-btn');
+            const progWrap = document.getElementById('bench-progress-wrap');
+            const progBar = document.getElementById('bench-progress');
+            const statText = document.getElementById('bench-status-text');
+            const resultsPanel = document.getElementById('results-panel');
+
+            const orders = document.querySelector('input[name="orderCount"]:checked').value;
+            const greedy = document.getElementById('algo-greedy').checked;
+            const ortools = document.getElementById('algo-ortools').checked;
+
+            if (!greedy && !ortools) {
+                window.HDL.UI.showToast("Select at least one algorithm", "error");
+                return;
+            }
+
+            // UI Reset
+            btn.disabled = true;
+            btn.innerHTML = `<span class="spinner"></span> Running...`;
+            resultsPanel.style.display = 'none';
+            progWrap.style.display = 'block';
+            statText.style.display = 'block';
+
+            // Animate progress
+            setTimeout(() => { progBar.style.width = '100%'; }, 10);
+
+            let step = 0;
+            const msgs = ['Initializing datasets...', 'Solving algorithms...', 'Aggregating results...'];
+            const int = setInterval(() => {
+                if (step < msgs.length) statText.textContent = msgs[step];
+                step++;
+            }, 800);
+
+            // Complete after 3s
+            setTimeout(() => {
+                clearInterval(int);
+                btn.disabled = false;
+                btn.innerHTML = 'Run Benchmark';
+                progBar.style.width = '0%';
+                progWrap.style.display = 'none';
+                statText.style.display = 'none';
+
+                showResults(orders, greedy, ortools);
+                window.HDL.UI.showToast("Benchmark complete", "success");
+            }, 3000);
+        }
+
+        function showResults(orders, useGreedy, useOrtools) {
+            const resultsPanel = document.getElementById('results-panel');
+            const tbody = document.getElementById('bench-results-body');
+            resultsPanel.style.display = 'block';
+
+            let html = '';
+            let labels = [];
+            let solveData = [];
+            let deliveryData = [];
+
+            // Fake logic for demo
+            const baseO = parseInt(orders);
+
+            if (useGreedy) {
+                const solve = Math.floor(baseO * 0.2);
+                const deliv = (12 + (baseO * 0.05)).toFixed(1);
+                html += `<tr><td>${baseO}</td><td>Greedy</td><td>${solve}</td><td>${deliv}</td><td>74%</td><td>${Math.floor(baseO * 0.1)}</td></tr>`;
+                labels.push('Greedy');
+                solveData.push(solve);
+                deliveryData.push(parseFloat(deliv));
+            }
+
+            if (useOrtools) {
+                const solve = Math.floor(baseO * 1.5);
+                const deliv = (9 + (baseO * 0.02)).toFixed(1);
+                html += `<tr><td>${baseO}</td><td>OR-Tools</td><td>${solve}</td><td>${deliv}</td><td>92%</td><td>0</td></tr>`;
+                labels.push('OR-Tools');
+                solveData.push(solve);
+                deliveryData.push(parseFloat(deliv));
+            }
+
+            tbody.innerHTML = html;
+
+            // Save to previous runs
+            let cfgArr = [];
+            if (useGreedy) cfgArr.push('Greedy');
+            if (useOrtools) cfgArr.push('OR-Tools');
+            window.HDL.mockData.benchmarks.unshift({
+                timestamp: new Date().toISOString(),
+                config: `${orders} Orders, ${cfgArr.join('+')}`,
+                result: `Completed in ~3s`
+            });
+            renderPreviousRuns();
+
+            // Chart
+            if (benchChartIns) benchChartIns.destroy();
+
+            Chart.defaults.color = '#6B7280';
+            Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+            benchChartIns = new Chart(document.getElementById('bench-chart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Solve Time (ms)', data: solveData, backgroundColor: '#2563EB', yAxisID: 'y' },
+                        { label: 'Avg Delivery (mins)', data: deliveryData, backgroundColor: '#22C55E', yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear', display: true, position: 'left',
+                            grid: { color: 'rgba(0,0,0,0.05)' }
+                        },
+                        y1: {
+                            type: 'linear', display: true, position: 'right',
+                            grid: { drawOnChartArea: false }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

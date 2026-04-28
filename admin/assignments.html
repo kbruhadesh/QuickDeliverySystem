@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignments | HDL Quick-Commerce</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .assign-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .assign-card {
+            padding: 20px;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: all var(--transition);
+            position: relative;
+        }
+
+        .assign-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        }
+
+        .assign-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .assign-title {
+            font-family: var(--font-heading);
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .assign-detail {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .assign-detail-label {
+            color: var(--text-secondary);
+        }
+
+        .assign-detail-val {
+            font-weight: 500;
+        }
+
+        .algo-label {
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .map-expand {
+            margin-top: 16px;
+            height: 0;
+            overflow: hidden;
+            transition: height 0.3s ease;
+            position: relative;
+        }
+
+        .map-expand.active {
+            height: 200px;
+        }
+
+        .mini-route-map {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+        <aside id="sidebar">
+            <div class="logo-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"
+                    style="color:var(--accent);">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                <h1>HDL System</h1>
+            </div>
+            <nav>
+                <a href="dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+                <a href="orders.html" class="nav-item"><span>📦</span> Orders</a>
+                <a href="map.html" class="nav-item"><span>🗺️</span> Live Map</a>
+                <a href="drones.html" class="nav-item"><span>🚁</span> Drone Fleet</a>
+                <a href="assignments.html" class="nav-item active"><span>📋</span> Assignments</a>
+                <a href="analytics.html" class="nav-item"><span>📈</span> Analytics</a>
+                <a href="dark-stores.html" class="nav-item">
+                    <span>??</span> Dark Stores
+                </a>
+                <div class="nav-divider"></div>
+                <a href="simulation.html" class="nav-item admin-only dev-only"><span>🎮</span> Simulation</a>
+                <a href="benchmarks.html" class="nav-item admin-only dev-only"><span>⚡</span> Benchmarks</a>
+                <a href="settings.html" class="nav-item admin-only"><span>⚙️</span> Settings</a>
+            </nav>
+        </aside>
+
+        <main id="main-content">
+            <header id="topbar">
+                <h2 class="page-title">Assignment Viewer</h2>
+                <div class="status-center">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="user-controls">
+                    <span class="user-name">User</span>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div id="page-content">
+                <div class="container">
+
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="font-size: 1.25rem;">Active Delivery Assignments</h3>
+                        <button class="btn btn-primary" id="run-assign-btn" onclick="runAssignment()">
+                            Run Assignment
+                        </button>
+                    </div>
+
+                    <div id="loading-area" style="display:none; text-align:center; padding: 60px;">
+                        <span class="spinner" style="width:40px; height:40px; border-width:4px;"></span>
+                        <p style="margin-top:16px; color:var(--text-secondary);">Running Optimization Solver...</p>
+                    </div>
+
+                    <div class="assign-grid" id="assign-grid">
+                        <!-- JS Populated -->
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        let activeMapNodes = {};
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.HDL.Router) window.HDL.Router.init();
+            renderAssignments();
+        });
+
+        function runAssignment() {
+            const btn = document.getElementById('run-assign-btn');
+            const grid = document.getElementById('assign-grid');
+            const loader = document.getElementById('loading-area');
+
+            const ogText = btn.innerHTML;
+            btn.innerHTML = `<span class="spinner"></span> Running...`;
+            btn.disabled = true;
+            grid.style.display = 'none';
+            loader.style.display = 'block';
+
+            setTimeout(() => {
+                btn.innerHTML = ogText;
+                btn.disabled = false;
+                loader.style.display = 'none';
+                grid.style.display = 'grid';
+                window.HDL.UI.showToast("Assignments generated successfully", "success");
+            }, 1500);
+        }
+
+        function renderAssignments() {
+            const grid = document.getElementById('assign-grid');
+            let html = '';
+
+            window.HDL.mockData.assignments.forEach((a, i) => {
+                const complianceBadge = a.compliance ?
+                    `<span class="badge success">✅ Compliant</span>` :
+                    `<span class="badge danger">⚠️ Violation</span>`;
+
+                let weatherColor = 'neutral';
+                if (a.weatherImpact === 'Medium') weatherColor = 'warning';
+                if (a.weatherImpact === 'High') weatherColor = 'danger';
+
+                html += `
+          <div class="card assign-card" onclick="toggleMap(${i}, this)">
+            <div class="algo-label">${a.algorithm}</div>
+            <div class="assign-header">
+              <div class="assign-title">${a.droneId} ➔ ${a.orderId}</div>
+              ${complianceBadge}
+            </div>
+            <div class="assign-detail"><span class="assign-detail-label">Distance</span><span class="assign-detail-val">${a.distance} km</span></div>
+            <div class="assign-detail"><span class="assign-detail-label">ETA</span><span class="assign-detail-val">${a.eta}</span></div>
+            <div class="assign-detail"><span class="assign-detail-label">Predicted Battery</span><span class="assign-detail-val">${a.batteryPred}%</span></div>
+            <div class="assign-detail"><span class="assign-detail-label">Weather Impact</span><span class="badge ${weatherColor}">${a.weatherImpact}</span></div>
+            
+            <div class="map-expand" id="map-expand-${i}">
+              <div id="map-container-${i}" class="mini-route-map"></div>
+            </div>
+          </div>
+        `;
+            });
+            grid.innerHTML = html;
+        }
+
+        function toggleMap(index, cardEl) {
+            const expandEl = document.getElementById(`map-expand-${index}`);
+            const isExpanded = expandEl.classList.contains('active');
+
+            // Close all others
+            document.querySelectorAll('.map-expand').forEach(el => el.classList.remove('active'));
+
+            if (!isExpanded) {
+                expandEl.classList.add('active');
+
+                setTimeout(() => {
+                    if (!activeMapNodes[index]) {
+                        const assignment = window.HDL.mockData.assignments[index];
+                        const map = L.map(`map-container-${index}`, { zoomControl: false, attributionControl: false });
+                        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+
+                        const polyline = L.polyline(assignment.route, { color: '#2563EB', weight: 3 }).addTo(map);
+                        map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
+
+                        // Start/End markers
+                        const start = assignment.route[0];
+                        const end = assignment.route[assignment.route.length - 1];
+                        L.circleMarker(start, { radius: 6, fillColor: '#22C55E', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(map);
+                        L.circleMarker(end, { radius: 6, fillColor: '#EF4444', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(map);
+
+                        activeMapNodes[index] = map;
+                    } else {
+                        activeMapNodes[index].invalidateSize();
+                    }
+                }, 300); // Wait for CSS transition
+            }
+        }
+    </script>
+</body>
+
+</html>

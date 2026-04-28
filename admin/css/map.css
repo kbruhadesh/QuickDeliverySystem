@@ -1,0 +1,123 @@
+/* Map Specific Styles */
+#map-wrapper {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - 72px);
+    /* Full height minus topbar */
+    margin: -32px;
+    /* Pull into padding of page content to fill */
+}
+
+.floating-panel {
+    position: absolute;
+    z-index: 1000;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    border-radius: var(--radius);
+    padding: 16px;
+    color: var(--text-primary);
+}
+
+.floating-panel-tr {
+    top: 16px;
+    right: 16px;
+    width: 200px;
+}
+
+.floating-panel-bl {
+    bottom: 24px;
+    left: 24px;
+    width: 250px;
+    display: none;
+    /* hidden by default until drone selected */
+}
+
+.layer-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+
+.layer-toggle:last-child {
+    margin-bottom: 0;
+}
+
+.layer-toggle input {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 0.9rem;
+}
+
+.info-row:last-child {
+    margin-bottom: 0;
+}
+
+.info-label {
+    color: var(--text-secondary);
+}
+
+.info-val {
+    font-weight: 500;
+}
+
+/* Custom leaflet tooltip for battery */
+.battery-tooltip {
+    background: #FFFFFF !important;
+    border: 1px solid var(--border) !important;
+    color: var(--text-primary) !important;
+    font-size: 0.75rem !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.marker-low-battery {
+    animation: pulse-red 1.5s infinite;
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+/* Leaflet light theme tweaks */
+.leaflet-container {
+    background: var(--bg-base) !important;
+    font-family: var(--font-body) !important;
+}
+
+.leaflet-bar a {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+.leaflet-bar a:hover {
+    background-color: #F3F4F6 !important;
+}
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+    border: 1px solid var(--border) !important;
+}

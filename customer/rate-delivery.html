@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rate Delivery | HDL Delivery</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .star-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin: 24px 0 16px 0;
+        }
+
+        .star {
+            width: 48px;
+            height: 48px;
+            color: var(--border);
+            cursor: pointer;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .star.active,
+        .star:hover {
+            color: #FBBF24;
+            transform: scale(1.1);
+        }
+
+        .rating-label {
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-primary);
+            min-height: 24px;
+            margin-bottom: 32px;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .chip {
+            padding: 8px 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            background: var(--bg-card);
+        }
+
+        .chip.selected {
+            background: var(--accent-light);
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                HDL
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+                <a href="track.html" class="nav-link auth-only">Track</a>
+            </div>
+            <div class="nav-profile auth-only" onclick="window.location.href='profile.html'">
+                <div
+                    style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                    <span class="user-greeting">U</span>
+                </div>
+            </div>
+            <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+        <a href="track.html" class="nav-link auth-only">Track</a>
+        <a href="profile.html" class="nav-link auth-only">Profile</a>
+    </div>
+
+    <div class="page-wrapper container" style="max-width: 600px;">
+
+        <div class="card" id="rating-form">
+            <h1 style="text-align:center; font-size:1.8rem; margin-bottom:8px;">How was your delivery?</h1>
+            <p style="text-align:center; color:var(--text-secondary); margin-bottom:24px;">Order #HDL-2847</p>
+
+            <div class="star-container">
+                <!-- Generates 5 stars -->
+                <svg class="star" data-val="1" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                <svg class="star" data-val="2" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                <svg class="star" data-val="3" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                <svg class="star" data-val="4" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+                <svg class="star" data-val="5" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                        d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                </svg>
+            </div>
+            <div class="rating-label" id="rating-label"></div>
+
+            <div id="feedback-chips" class="chips" style="display:none;"></div>
+
+            <div class="form-group" style="margin-bottom:32px;">
+                <label>Tell us more (optional)</label>
+                <textarea class="input-control" rows="3" maxlength="200"
+                    placeholder="Any specific feedback?"></textarea>
+            </div>
+
+            <button class="btn btn-primary btn-block" id="submit-rating" disabled
+                title="Please select a rating first.">Submit Review</button>
+        </div>
+
+        <div class="card" id="rating-success" style="display:none; text-align:center; padding: 60px 24px;">
+            <svg style="width:80px; height:80px; color:#FBBF24; margin:0 auto 24px auto;" viewBox="0 0 24 24"
+                fill="currentColor">
+                <path
+                    d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <h2 style="font-size:2rem; margin-bottom:12px;">Thanks for your feedback!</h2>
+            <p style="color:var(--text-secondary); margin-bottom:32px;">It helps us improve the service.</p>
+            <button class="btn btn-outline" onclick="window.location.href='index.html'">Back to Home</button>
+        </div>
+
+    </div>
+
+    <script src="js/ui.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.HDL_CUSTOMER.UI.requireLogin()) return;
+
+            const stars = document.querySelectorAll('.star');
+            const label = document.getElementById('rating-label');
+            const chipsContainer = document.getElementById('feedback-chips');
+            const submitBtn = document.getElementById('submit-rating');
+            let currentRating = 0;
+
+            const labels = ["Very poor", "Poor", "Okay", "Good", "Excellent!"];
+            const posChips = ["Fast delivery", "Drone was precise", "Great experience", "On time"];
+            const negChips = ["Took too long", "Wrong location", "Drone issue", "App problem"];
+
+            stars.forEach(star => {
+                star.addEventListener('mouseover', function () {
+                    const val = parseInt(this.dataset.val);
+                    highlightStars(val);
+                    label.textContent = labels[val - 1];
+                });
+
+                star.addEventListener('mouseout', function () {
+                    highlightStars(currentRating);
+                    label.textContent = currentRating > 0 ? labels[currentRating - 1] : "";
+                });
+
+                star.addEventListener('click', function () {
+                    currentRating = parseInt(this.dataset.val);
+                    highlightStars(currentRating);
+                    label.textContent = labels[currentRating - 1];
+                    submitBtn.disabled = false;
+                    submitBtn.removeAttribute('title');
+
+                    // Render chips
+                    chipsContainer.style.display = 'flex';
+                    chipsContainer.innerHTML = '';
+                    const chipArray = currentRating >= 4 ? posChips : negChips;
+                    chipArray.forEach(txt => {
+                        const c = document.createElement('div');
+                        c.className = 'chip';
+                        c.textContent = txt;
+                        c.onclick = () => c.classList.toggle('selected');
+                        chipsContainer.appendChild(c);
+                    });
+                });
+            });
+
+            function highlightStars(val) {
+                stars.forEach(s => {
+                    if (parseInt(s.dataset.val) <= val) s.style.color = '#FBBF24';
+                    else s.style.color = 'var(--border)';
+                });
+            }
+
+            submitBtn.addEventListener('click', () => {
+                window.HDL_CUSTOMER.UI.showSpinner(submitBtn);
+                setTimeout(() => {
+                    document.getElementById('rating-form').style.display = 'none';
+                    document.getElementById('rating-success').style.display = 'block';
+                }, 800);
+            });
+        });
+    </script>
+</body>
+
+</html>

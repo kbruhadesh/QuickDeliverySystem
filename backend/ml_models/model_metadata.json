@@ -1,0 +1,14 @@
+{
+  "rmse": 1.2703312672847802,
+  "r2_score": 0.9749476579104788,
+  "features": [
+    "distance_km",
+    "payload_weight_kg",
+    "wind_speed_kmh",
+    "temperature_c",
+    "humidity_percent"
+  ],
+  "n_samples": 1000,
+  "model_type": "RandomForestRegressor",
+  "trained_at": "2026-04-21T16:13:14.675075"
+}

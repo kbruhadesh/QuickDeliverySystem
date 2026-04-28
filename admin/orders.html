@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orders | HDL Quick-Commerce</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        #order-map {
+            height: 300px;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            margin-bottom: 16px;
+        }
+
+        .coord-inputs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="logo-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"
+                    style="color:var(--accent);">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                <h1>HDL System</h1>
+            </div>
+            <nav>
+                <a href="dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+                <a href="orders.html" class="nav-item"><span>📦</span> Orders</a>
+                <a href="map.html" class="nav-item"><span>🗺️</span> Live Map</a>
+                <a href="drones.html" class="nav-item"><span>🚁</span> Drone Fleet</a>
+                <a href="assignments.html" class="nav-item"><span>📋</span> Assignments</a>
+                <a href="analytics.html" class="nav-item"><span>📈</span> Analytics</a>
+                <a href="dark-stores.html" class="nav-item">
+                    <span>??</span> Dark Stores
+                </a>
+                <div class="nav-divider"></div>
+                <a href="simulation.html" class="nav-item admin-only dev-only"><span>🎮</span> Simulation</a>
+                <a href="benchmarks.html" class="nav-item admin-only dev-only"><span>⚡</span> Benchmarks</a>
+                <a href="settings.html" class="nav-item admin-only"><span>⚙️</span> Settings</a>
+            </nav>
+        </aside>
+
+        <main id="main-content">
+            <header id="topbar">
+                <h2 class="page-title">Orders</h2>
+                <div class="status-center">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="user-controls">
+                    <span class="user-name">User</span>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div id="page-content">
+                <div class="container">
+
+                    <div class="page-header">
+                        <h3 style="font-size: 1.25rem;">Order Management</h3>
+                        <button class="btn btn-primary"
+                            onclick="window.HDL.UI.openModal('new-order-modal'); initOrderMap();">
+                            + Place New Order
+                        </button>
+                    </div>
+
+                    <div class="filter-tabs" id="order-filters">
+                        <button class="pill-btn active" data-filter="all">All</button>
+                        <button class="pill-btn" data-filter="pending">Pending</button>
+                        <button class="pill-btn" data-filter="assigned">Assigned</button>
+                        <button class="pill-btn" data-filter="in-transit">In-Transit</button>
+                        <button class="pill-btn" data-filter="completed">Completed</button>
+                        <button class="pill-btn" data-filter="failed">Failed</button>
+                    </div>
+
+                    <div class="card" style="padding: 0; overflow: hidden;">
+                        <div class="table-container" id="orders-table-container">
+                            <table id="orders-table">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Pickup</th>
+                                        <th>Delivery</th>
+                                        <th>Weight</th>
+                                        <th>Status</th>
+                                        <th>Assigned To</th>
+                                        <th>Created At</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- JS populated -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div id="orders-empty-state" style="display: none;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- New Order Modal -->
+    <div class="modal-overlay" id="new-order-modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h2>Place New Order</h2>
+                <button class="btn-close" onclick="window.HDL.UI.closeModal('new-order-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 12px; font-size: 0.9rem; color: var(--text-secondary);">
+                    Click map to set Pickup (Green), then Delivery (Red).
+                </p>
+                <div id="order-map"></div>
+                <div id="map-error" class="error-text"
+                    style="color:var(--danger); font-size:0.85rem; margin-bottom:12px; display:none;">
+                    Please select both pickup and delivery locations
+                </div>
+
+                <div class="coord-inputs">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Pickup Location</label>
+                        <input type="text" id="pickup-coord" class="input-control" readonly
+                            placeholder="Waiting for click...">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Delivery Location</label>
+                        <input type="text" id="delivery-coord" class="input-control" readonly
+                            placeholder="Waiting for click...">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top: 16px; margin-bottom:0;">
+                    <label>Package Weight (kg)</label>
+                    <input type="number" id="order-weight" class="input-control" value="1.0" min="0.1" max="5.0"
+                        step="0.1">
+                    <div id="weight-error" class="error-text"
+                        style="color:var(--danger); font-size:0.85rem; margin-top:4px; display:none;">
+                        Weight must be between 0.1 and 5.0 kg
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="window.HDL.UI.closeModal('new-order-modal')">Cancel</button>
+                <button class="btn btn-primary" onclick="submitOrder()">Submit Order</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        let orderMapInst = null;
+        let pickupMarker = null;
+        let deliveryMarker = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.HDL.Router) window.HDL.Router.init();
+            renderTable('all');
+
+            // Filter tabs logic
+            document.querySelectorAll('#order-filters .pill-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('#order-filters .pill-btn').forEach(b => b.classList.remove('active'));
+                    e.target.classList.add('active');
+                    renderTable(e.target.dataset.filter);
+                });
+            });
+        });
+
+        function renderTable(filter) {
+            const tbody = document.querySelector('#orders-table tbody');
+            const tableContainer = document.getElementById('orders-table-container');
+            const emptyState = document.getElementById('orders-empty-state');
+
+            let data = window.HDL.mockData.orders;
+            if (filter !== 'all') {
+                data = data.filter(o => o.status === filter);
+            }
+
+            if (data.length === 0) {
+                tableContainer.style.display = 'none';
+                emptyState.style.display = 'block';
+                window.HDL.UI.showEmptyState('orders-empty-state',
+                    '<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4M12 20V4"/>',
+                    'No orders found', 'There are no orders matching this filter.', null, null);
+            } else {
+                tableContainer.style.display = 'block';
+                emptyState.style.display = 'none';
+
+                let html = '';
+                data.forEach(o => {
+                    const statusClass = window.HDL.UI.setBadgeColor(o.status);
+                    const drone = o.assignedDrone || '-';
+                    const pkp = `${o.pickup[0].toFixed(2)}, ${o.pickup[1].toFixed(2)}`;
+                    const del = `${o.delivery[0].toFixed(2)}, ${o.delivery[1].toFixed(2)}`;
+                    const date = window.HDL.UI.formatDateTime(o.createdAt);
+
+                    html += `
+            <tr>
+              <td><strong>${o.id}</strong></td>
+              <td>${pkp}</td>
+              <td>${del}</td>
+              <td>${o.weight} kg</td>
+              <td><span class="badge ${statusClass}">${o.status}</span></td>
+              <td>${drone}</td>
+              <td>${date}</td>
+              <td><button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem;">View</button></td>
+            </tr>
+          `;
+                });
+                tbody.innerHTML = html;
+            }
+        }
+
+        function initOrderMap() {
+            // Clear previous markers
+            document.getElementById('pickup-coord').value = '';
+            document.getElementById('delivery-coord').value = '';
+            document.getElementById('map-error').style.display = 'none';
+            document.getElementById('weight-error').style.display = 'none';
+
+            if (!orderMapInst) {
+                orderMapInst = L.map('order-map').setView([17.3850, 78.4867], 12);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(orderMapInst);
+
+                orderMapInst.on('click', (e) => {
+                    if (!pickupMarker) {
+                        pickupMarker = L.circleMarker(e.latlng, { radius: 8, fillColor: '#22C55E', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(orderMapInst);
+                        document.getElementById('pickup-coord').value = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+                    } else if (!deliveryMarker) {
+                        deliveryMarker = L.circleMarker(e.latlng, { radius: 8, fillColor: '#EF4444', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(orderMapInst);
+                        document.getElementById('delivery-coord').value = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+
+                        // Draw route line
+                        L.polyline([pickupMarker.getLatLng(), deliveryMarker.getLatLng()], { color: '#8B9AB3', dashArray: '5, 5' }).addTo(orderMapInst);
+                    }
+                });
+            }
+
+            setTimeout(() => {
+                orderMapInst.invalidateSize();
+                // clear map layers except tile
+                orderMapInst.eachLayer((layer) => {
+                    if (!layer._url) orderMapInst.removeLayer(layer);
+                });
+                pickupMarker = null;
+                deliveryMarker = null;
+            }, 50);
+        }
+
+        function submitOrder() {
+            const p = document.getElementById('pickup-coord').value;
+            const d = document.getElementById('delivery-coord').value;
+            const w = parseFloat(document.getElementById('order-weight').value);
+
+            const mapErr = document.getElementById('map-error');
+            const wErr = document.getElementById('weight-error');
+
+            let valid = true;
+            if (!p || !d) {
+                mapErr.style.display = 'block';
+                valid = false;
+            } else {
+                mapErr.style.display = 'none';
+            }
+
+            if (w < 0.1 || w > 5.0 || isNaN(w)) {
+                wErr.style.display = 'block';
+                valid = false;
+            } else {
+                wErr.style.display = 'none';
+            }
+
+            if (valid) {
+                const id = `ORD-${1000 + window.HDL.mockData.orders.length + 1}`;
+                const newOrder = {
+                    id: id,
+                    pickup: p.split(',').map(n => parseFloat(n)),
+                    delivery: d.split(',').map(n => parseFloat(n)),
+                    weight: w,
+                    status: 'pending',
+                    assignedDrone: null,
+                    createdAt: new Date().toISOString()
+                };
+
+                window.HDL.mockData.orders.unshift(newOrder);
+                window.HDL.UI.closeModal('new-order-modal');
+                window.HDL.UI.showToast(`Order ${id} created successfully`, 'success');
+
+                const activeFilter = document.querySelector('#order-filters .pill-btn.active').dataset.filter;
+                renderTable(activeFilter);
+            }
+        }
+    </script>
+</body>
+
+</html>

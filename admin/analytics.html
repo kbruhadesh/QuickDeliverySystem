@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics | HDL Quick-Commerce</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        @media(max-width: 1200px) {
+            .analytics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media(max-width: 768px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            border-top: 3px solid var(--accent);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-card h4 {
+            margin-bottom: 16px;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+        }
+
+        .chart-container {
+            position: relative;
+            flex: 1;
+            min-height: 200px;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .kpi-block {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .kpi-val {
+            font-size: 2rem;
+            font-family: var(--font-heading);
+            color: var(--accent);
+            margin-top: 8px;
+        }
+
+        .kpi-lbl {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+        <aside id="sidebar">
+            <div class="logo-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"
+                    style="color:var(--accent);">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                <h1>HDL System</h1>
+            </div>
+            <nav>
+                <a href="dashboard.html" class="nav-item"><span>📊</span> Dashboard</a>
+                <a href="orders.html" class="nav-item"><span>📦</span> Orders</a>
+                <a href="map.html" class="nav-item"><span>🗺️</span> Live Map</a>
+                <a href="drones.html" class="nav-item"><span>🚁</span> Drone Fleet</a>
+                <a href="assignments.html" class="nav-item"><span>📋</span> Assignments</a>
+                <a href="analytics.html" class="nav-item active"><span>📈</span> Analytics</a>
+                <a href="dark-stores.html" class="nav-item">
+                    <span>??</span> Dark Stores
+                </a>
+                <div class="nav-divider"></div>
+                <a href="simulation.html" class="nav-item admin-only dev-only"><span>🎮</span> Simulation</a>
+                <a href="benchmarks.html" class="nav-item admin-only dev-only"><span>⚡</span> Benchmarks</a>
+                <a href="settings.html" class="nav-item admin-only"><span>⚙️</span> Settings</a>
+            </nav>
+        </aside>
+
+        <main id="main-content">
+            <header id="topbar">
+                <h2 class="page-title">Analytics</h2>
+                <div class="status-center">
+                    <div class="status-dot"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="user-controls">
+                    <span class="user-name">User</span>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <div id="page-content">
+                <div class="container">
+
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="font-size: 1.25rem;">Performance Analytics</h3>
+                        <div class="filter-tabs">
+                            <button class="pill-btn">1H</button>
+                            <button class="pill-btn active">6H</button>
+                            <button class="pill-btn">24H</button>
+                            <button class="pill-btn">7D</button>
+                        </div>
+                    </div>
+
+                    <div class="analytics-grid">
+                        <!-- Line Chart: Delivery Times -->
+                        <div class="card chart-card" style="grid-column: span 2;">
+                            <h4>Average Delivery Time (mins)</h4>
+                            <div class="chart-container">
+                                <canvas id="chart-delivery-time"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- KPI Cards -->
+                        <div class="card chart-card">
+                            <h4>System KPIs</h4>
+                            <div class="kpi-grid">
+                                <div class="kpi-block">
+                                    <div class="kpi-lbl">Total Failures</div>
+                                    <div class="kpi-val" style="color: var(--danger)">3</div>
+                                </div>
+                                <div class="kpi-block">
+                                    <div class="kpi-lbl">Avg Recovery</div>
+                                    <div class="kpi-val">8.2s</div>
+                                </div>
+                                <div class="kpi-block" style="grid-column: span 2;">
+                                    <div class="kpi-lbl">Overall Compliance</div>
+                                    <div class="kpi-val" style="color: var(--success)">94%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Bar Chart: Battery Used -->
+                        <div class="card chart-card">
+                            <h4>Battery Consumption by Drone (%)</h4>
+                            <div class="chart-container">
+                                <canvas id="chart-battery"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Bar Chart: Order Volume -->
+                        <div class="card chart-card">
+                            <h4>Hourly Order Volume</h4>
+                            <div class="chart-container">
+                                <canvas id="chart-volume"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Doughnut Chart: Compliance -->
+                        <div class="card chart-card">
+                            <h4>Route Compliance</h4>
+                            <div class="chart-container"
+                                style="display:flex; justify-content:center; align-items:center;">
+                                <div style="height: 200px; width: 200px;">
+                                    <canvas id="chart-compliance"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Algorithm Comparison Table -->
+                    <div class="card" style="margin-top:24px; padding:0; overflow:hidden;">
+                        <div
+                            style="padding: 20px; display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--border);">
+                            <h4 style="margin:0;">Algorithm Performance Comparison</h4>
+                            <button class="btn btn-secondary" onclick="exportCSV()">⬇ Export CSV</button>
+                        </div>
+                        <div class="table-container">
+                            <table id="algo-table">
+                                <thead>
+                                    <tr>
+                                        <th>Algorithm</th>
+                                        <th>Average Solve Time</th>
+                                        <th>Avg Delivery Time</th>
+                                        <th>Battery Efficiency</th>
+                                        <th>Violations</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>OR-Tools</strong></td>
+                                        <td>145 ms</td>
+                                        <td>12.5 mins</td>
+                                        <td><span class="badge success">High (85%)</span></td>
+                                        <td>0</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Greedy Heuristic</strong></td>
+                                        <td>4 ms</td>
+                                        <td>14.8 mins</td>
+                                        <td><span class="badge warning">Medium (62%)</span></td>
+                                        <td>4</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (window.HDL.Router) window.HDL.Router.init();
+            initCharts();
+        });
+
+        function initCharts() {
+            // Global defaults
+            Chart.defaults.color = '#6B7280';
+            Chart.defaults.font.family = "'DM Sans', sans-serif";
+            const gridColor = 'rgba(0,0,0,0.05)';
+
+            const analytics = window.HDL.mockData.analytics;
+
+            // 1. Delivery Time (Line)
+            new Chart(document.getElementById('chart-delivery-time'), {
+                type: 'line',
+                data: {
+                    labels: ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00'],
+                    datasets: [{
+                        label: 'Avg Minutes',
+                        data: analytics.deliveryTimes,
+                        borderColor: '#2563EB',
+                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: gridColor }, beginAtZero: false },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // 2. Battery Consumption (Bar)
+            const batLabels = Object.keys(analytics.batteryUsed);
+            const batData = Object.values(analytics.batteryUsed);
+            new Chart(document.getElementById('chart-battery'), {
+                type: 'bar',
+                data: {
+                    labels: batLabels,
+                    datasets: [{
+                        label: '% Consumed',
+                        data: batData,
+                        backgroundColor: '#F59E0B',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: gridColor }, max: 100 },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // 3. Order Volume (Bar)
+            new Chart(document.getElementById('chart-volume'), {
+                type: 'bar',
+                data: {
+                    labels: ['8am', '9am', '10am', '11am', '12pm', '1pm', '2pm', '3pm', '4pm', '5pm'],
+                    datasets: [{
+                        label: 'Orders',
+                        data: analytics.hourlyVolumes,
+                        backgroundColor: '#2563EB',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { grid: { color: gridColor } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // 4. Compliance (Doughnut)
+            new Chart(document.getElementById('chart-compliance'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Compliant', 'Violation'],
+                    datasets: [{
+                        data: [94, 6],
+                        backgroundColor: ['#22C55E', '#EF4444'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#8B9AB3', padding: 20 } }
+                    }
+                }
+            });
+        }
+
+        function exportCSV() {
+            const rows = [
+                ["Algorithm", "Average Solve Time", "Avg Delivery Time", "Battery Efficiency", "Violations"],
+                ["OR-Tools", "145 ms", "12.5 mins", "High (85%)", "0"],
+                ["Greedy Heuristic", "4 ms", "14.8 mins", "Medium (62%)", "4"]
+            ];
+
+            let csvContent = "data:text/csv;charset=utf-8,"
+                + rows.map(e => e.join(",")).join("\n");
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "algorithm_comparison.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            window.HDL.UI.showToast("CSV Downloaded", "success");
+        }
+    </script>
+</body>
+
+</html>

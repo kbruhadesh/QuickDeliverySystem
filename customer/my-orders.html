@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders | HDL Delivery</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .tabs {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 24px;
+            scrollbar-width: none;
+            /* Firefox */
+        }
+
+        .tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 8px 16px;
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: var(--accent);
+            color: #fff;
+            border-color: var(--accent);
+        }
+
+        .order-card {
+            margin-bottom: 16px;
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .order-route {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .order-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                HDL
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="my-orders.html" class="nav-link active auth-only">My Orders</a>
+                <a href="track.html" class="nav-link auth-only">Track</a>
+            </div>
+            <div class="nav-profile auth-only" onclick="window.location.href='profile.html'">
+                <div
+                    style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                    <span class="user-greeting">U</span>
+                </div>
+            </div>
+            <div class="nav-profile guest-only">
+                <a href="login.html" class="btn btn-outline" style="min-height:36px; padding:6px 16px;">Log In</a>
+            </div>
+            <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="my-orders.html" class="nav-link active auth-only">My Orders</a>
+        <a href="track.html" class="nav-link auth-only">Track</a>
+        <a href="profile.html" class="nav-link auth-only">Profile</a>
+        <a href="login.html" class="nav-link guest-only">Log In / Register</a>
+    </div>
+
+    <div class="page-wrapper container" style="max-width: 800px;">
+
+        <!-- Guest Empty State -->
+        <div id="unauth-state" style="display:none; text-align:center; padding: 60px 20px;">
+            <svg style="width:64px; height:64px; color:var(--text-hint); margin-bottom:24px;" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <h2 style="margin-bottom:12px;">Sign in to see your orders</h2>
+            <p style="color:var(--text-secondary); margin-bottom:32px;">Log in or create an account to view your
+                delivery history.</p>
+            <div style="display:flex; justify-content:center; gap:16px;">
+                <button class="btn btn-primary" onclick="window.location.href='login.html'">Log In</button>
+                <button class="btn btn-outline" onclick="window.location.href='register.html'">Register</button>
+            </div>
+        </div>
+
+        <!-- Auth State -->
+        <div id="auth-state" style="display:none;">
+            <h1 style="margin-bottom: 24px;">My Orders</h1>
+
+            <div class="tabs" id="filter-tabs">
+                <div class="tab active" data-filter="all">All Orders</div>
+                <div class="tab" data-filter="active">Active</div>
+                <div class="tab" data-filter="completed">Completed</div>
+                <div class="tab" data-filter="cancelled">Cancelled</div>
+            </div>
+
+            <div id="orders-list">
+                <!-- Rendered via JS -->
+            </div>
+
+            <div id="empty-filter"
+                style="display:none; text-align:center; padding: 40px 20px; color:var(--text-secondary);">
+                No orders found in this category.
+            </div>
+        </div>
+
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/ui.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const userStr = localStorage.getItem('hdl_customer');
+            if (!userStr) {
+                document.getElementById('unauth-state').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('auth-state').style.display = 'block';
+            let allOrders = [...window.HDL_CUSTOMER.MOCK_ORDERS];
+
+            // Inject the local storage order if present to simulate fluid UX
+            const latestOrder = localStorage.getItem('hdl_latest_order');
+            if (latestOrder) {
+                const lo = JSON.parse(latestOrder);
+                // Add if not already tracking same id roughly
+                if (!allOrders.find(o => o.id === lo.id)) {
+                    allOrders.unshift({
+                        id: lo.id, status: 'IN_TRANSIT', pickup: "Custom Location", delivery: "Customer Location",
+                        weight: "1-2 kg", drone: lo.drone, created: new Date().toISOString()
+                    });
+                }
+            }
+
+            function renderOrders(filter) {
+                const list = document.getElementById('orders-list');
+                list.innerHTML = '';
+
+                let filtered = allOrders;
+                if (filter === 'active') filtered = allOrders.filter(o => o.status === 'IN_TRANSIT' || o.status === 'CONFIRMED');
+                if (filter === 'completed') filtered = allOrders.filter(o => o.status === 'DELIVERED');
+                if (filter === 'cancelled') filtered = allOrders.filter(o => o.status === 'CANCELLED');
+
+                if (filtered.length === 0) {
+                    document.getElementById('empty-filter').style.display = 'block';
+                } else {
+                    document.getElementById('empty-filter').style.display = 'none';
+
+                    filtered.forEach(o => {
+                        const timeTxt = o.status === 'DELIVERED' ? window.HDL_CUSTOMER.UI.formatDateTime(o.delivered_at) :
+                            (o.status === 'CANCELLED' ? window.HDL_CUSTOMER.UI.formatDateTime(o.cancelled_at) :
+                                window.HDL_CUSTOMER.UI.formatDateTime(o.created));
+
+                        const actionBtn = (o.status === 'IN_TRANSIT' || o.status === 'CONFIRMED')
+                            ? `<button class="btn btn-primary" onclick="window.location.href='track.html'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Track Live</button>`
+                            : `<button class="btn btn-outline" onclick="window.location.href='place-order.html'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Reorder</button>`;
+
+                        list.innerHTML += `
+              <div class="card order-card">
+                <div class="order-header">
+                  <div>
+                    <h3 style="font-size:1.1rem; margin-bottom:4px;">${o.id} ${o.type === 'GROCERY' ? '<span style="font-size:0.8rem; background:var(--accent-light); color:var(--accent); padding:2px 6px; border-radius:4px;">GROCERY</span>' : ''}</h3>
+                    <span style="color:var(--text-secondary); font-size:0.85rem;">${timeTxt}</span>
+                  </div>
+                  <div>
+                    ${window.HDL_CUSTOMER.UI.getStatusBadge(o.status)}
+                  </div>
+                </div>
+                <div class="order-route">
+                  <span style="color:var(--success)">●</span> <span style="font-weight:400">${o.store || o.pickup}</span>
+                  <span style="color:var(--text-hint)">→</span>
+                  <span style="color:var(--danger)">●</span> <span style="font-weight:400">${o.type === 'GROCERY' ? 'Home' : o.delivery}</span>
+                </div>
+                <div class="order-footer">
+                  <div style="background:var(--bg-muted); padding:4px 12px; border-radius:12px; font-size:0.8rem; font-weight:600;">📦 ${o.type === 'GROCERY' ? o.items + ' Items' : o.weight}</div>
+                  ${actionBtn}
+                </div>
+              </div>
+            `;
+                    });
+                }
+            }
+
+            renderOrders('all');
+
+            // Tabs
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                    renderOrders(e.target.dataset.filter);
+                });
+            });
+
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile | HDL Delivery</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        .profile-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .avatar-lg {
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 16px;
+            font-family: var(--font-heading);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-tile {
+            text-align: center;
+            padding: 16px;
+        }
+
+        .stat-val {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--accent);
+            font-family: var(--font-heading);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .address-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                HDL
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+                <a href="track.html" class="nav-link auth-only">Track</a>
+            </div>
+            <div class="nav-profile auth-only">
+                <div
+                    style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                    <span class="user-greeting" id="nav-initial">U</span>
+                </div>
+            </div>
+            <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+        <a href="track.html" class="nav-link auth-only">Track</a>
+        <a href="profile.html" class="nav-link active auth-only">Profile</a>
+    </div>
+
+    <div class="page-wrapper container" style="max-width: 600px;">
+
+        <div class="card profile-header">
+            <div class="avatar-lg" id="profile-initial">U</div>
+            <h1 id="profile-name" style="margin-bottom: 4px;">User Name</h1>
+            <p id="profile-email" style="color:var(--text-secondary); margin-bottom: 16px;">user@example.com</p>
+
+            <button class="btn btn-outline" id="edit-profile-toggle"
+                style="min-height:36px; padding:6px 20px; font-size:0.9rem;">Edit Profile</button>
+
+            <div id="edit-profile-form"
+                style="display:none; width:100%; margin-top:24px; text-align:left; border-top:1px solid var(--border); padding-top:24px;">
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="edit-name" class="input-control">
+                </div>
+                <div class="form-group">
+                    <label>Phone Number</label>
+                    <input type="text" id="edit-phone" class="input-control" value="+91 98765 43210">
+                </div>
+                <button class="btn btn-primary btn-block" id="save-profile-btn">Save Changes</button>
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="card stat-tile">
+                <div class="stat-val">8</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+            <div class="card stat-tile">
+                <div class="stat-val">7</div>
+                <div class="stat-label">Delivered</div>
+            </div>
+            <div class="card stat-tile">
+                <div class="stat-val">21m</div>
+                <div class="stat-label">Avg Time</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 32px;">
+            <h2 style="font-size: 1.25rem; margin-bottom: 16px;">Saved Addresses</h2>
+
+            <div class="address-card">
+                <div>
+                    <h4 style="margin-bottom:4px;">Home</h4>
+                    <p style="color:var(--text-secondary); font-size:0.9rem;">123 Rajiv Gandhi Nagar, Tech Park Phase 1,
+                        Bangalore 560001</p>
+                </div>
+                <a href="#" style="color:var(--accent); font-weight:600; font-size:0.9rem;">Edit</a>
+            </div>
+
+            <div class="address-card">
+                <div>
+                    <h4 style="margin-bottom:4px;">Work</h4>
+                    <p style="color:var(--text-secondary); font-size:0.9rem;">Block C, DLF Enterprise Hub, Bangalore
+                        560010</p>
+                </div>
+                <a href="#" style="color:var(--accent); font-weight:600; font-size:0.9rem;">Edit</a>
+            </div>
+
+            <a href="#"
+                style="color:var(--accent); font-weight:600; font-size:0.9rem; display:block; margin-top:16px;">+ Add
+                new address</a>
+        </div>
+
+        <div style="text-align:center;">
+            <button class="btn btn-danger-outline btn-block" id="logout-btn">Log Out</button>
+        </div>
+
+    </div>
+
+    <script src="js/ui.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = window.HDL_CUSTOMER.UI.requireLogin();
+            if (!user) return;
+
+            document.getElementById('profile-name').textContent = user.name;
+            document.getElementById('profile-email').textContent = user.email;
+
+            const char = user.name.charAt(0).toUpperCase();
+            document.getElementById('profile-initial').textContent = char;
+            const navI = document.getElementById('nav-initial');
+            if (navI) navI.textContent = char;
+
+            document.getElementById('edit-name').value = user.name;
+
+            document.getElementById('edit-profile-toggle').addEventListener('click', () => {
+                const form = document.getElementById('edit-profile-form');
+                form.style.display = form.style.display === 'none' ? 'block' : 'none';
+            });
+
+            document.getElementById('save-profile-btn').addEventListener('click', (e) => {
+                const btn = e.target;
+                window.HDL_CUSTOMER.UI.showSpinner(btn);
+
+                setTimeout(() => {
+                    const newName = document.getElementById('edit-name').value;
+                    user.name = newName;
+                    localStorage.setItem('hdl_customer', JSON.stringify(user));
+
+                    document.getElementById('profile-name').textContent = newName;
+                    document.getElementById('profile-initial').textContent = newName.charAt(0).toUpperCase();
+                    document.getElementById('edit-profile-form').style.display = 'none';
+
+                    window.HDL_CUSTOMER.UI.hideSpinner(btn);
+                    window.HDL_CUSTOMER.UI.showToast('Profile updated!', 'success');
+                }, 600);
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                if (confirm("Are you sure you want to log out?")) {
+                    window.HDL_CUSTOMER.Auth.logout();
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Place Order | HDL Delivery</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/map.css">
+
+    <style>
+        .order-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+        }
+
+        @media(max-width: 900px) {
+            .order-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .order-layout .right-col {
+                order: 2;
+                margin-top: 24px;
+            }
+
+            .order-layout .left-col {
+                order: 1;
+            }
+        }
+
+        .map-box {
+            height: 200px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .preview-map-box {
+            height: calc(100vh - 120px);
+            min-height: 400px;
+            border-radius: var(--radius-md);
+            position: sticky;
+            top: 84px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                HDL
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+                <a href="track.html" class="nav-link auth-only">Track</a>
+            </div>
+            <div class="nav-profile auth-only" onclick="window.location.href='profile.html'">
+                <div
+                    style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                    <span class="user-greeting">U</span>
+                </div>
+            </div>
+            <div class="nav-profile guest-only">
+                <a href="login.html" class="btn btn-outline" style="min-height:36px; padding:6px 16px;">Log In</a>
+            </div>
+            <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+        <a href="track.html" class="nav-link auth-only">Track</a>
+        <a href="profile.html" class="nav-link auth-only">Profile</a>
+        <a href="login.html" class="nav-link guest-only">Log In / Register</a>
+    </div>
+
+    <div class="page-wrapper container">
+        <h1 style="margin-bottom: 24px;">Place a delivery order</h1>
+        <p style="color:var(--text-hint);display:none" id="tooltips">Set pickup and delivery locations first.</p>
+
+        <div class="order-layout">
+
+            <!-- Left Column (Form) -->
+            <div class="left-col">
+                <div class="stepper">
+                    <div class="step-item active" id="step-1">
+                        <div class="step-circle">1</div>
+                        <div class="step-label">Pickup</div>
+                    </div>
+                    <div class="step-item" id="step-2">
+                        <div class="step-circle">2</div>
+                        <div class="step-label">Delivery</div>
+                    </div>
+                    <div class="step-item" id="step-3">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">Details</div>
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:24px;">
+                    <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Step 1 — Pickup Location</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">Click on the map or
+                        search to set your pickup location.</p>
+                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                        <input type="text" id="pickup-search" class="input-control"
+                            placeholder="Search location (e.g. Hi-Tech City)..."
+                            style="min-height:36px; padding:8px 12px;">
+                        <button class="btn btn-primary" onclick="window.HDL_CUSTOMER.OrderFlow.searchLocation('pickup')"
+                            style="min-height:36px; padding:8px 16px;">Search</button>
+                    </div>
+                    <div id="pickup-map" class="map-box"></div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <input type="text" id="pickup-coords" class="input-control"
+                            placeholder="Coordinates will appear here" readonly style="background:var(--bg-muted);">
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:24px;">
+                    <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Step 2 — Delivery Location</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">Click on the map or
+                        search to set your delivery location.</p>
+                    <div style="display:flex; gap:8px; margin-bottom:12px;">
+                        <input type="text" id="delivery-search" class="input-control"
+                            placeholder="Search location (e.g. Banjara Hills)..."
+                            style="min-height:36px; padding:8px 12px;">
+                        <button class="btn btn-primary"
+                            onclick="window.HDL_CUSTOMER.OrderFlow.searchLocation('delivery')"
+                            style="min-height:36px; padding:8px 16px;">Search</button>
+                    </div>
+                    <div id="delivery-map" class="map-box"></div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <input type="text" id="delivery-coords" class="input-control"
+                            placeholder="Coordinates will appear here" readonly style="background:var(--bg-muted);">
+                    </div>
+                </div>
+
+                <div class="card" style="margin-bottom:24px;">
+                    <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Step 3 — Package Details</h3>
+                    <div class="form-group">
+                        <label>Package Weight</label>
+                        <select class="input-control">
+                            <option>Under 1 kg</option>
+                            <option>1–2 kg</option>
+                            <option>2–3 kg</option>
+                            <option>3–5 kg</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label>Special Instructions (Optional)</label>
+                        <textarea class="input-control" maxlength="100" rows="2"
+                            placeholder="Leave at door, beware of dog..."></textarea>
+                    </div>
+                </div>
+
+                <button class="btn btn-outline btn-block" style="margin-bottom: 16px; background:#fff;"
+                    id="calc-eta-btn" disabled>Calculate ETA</button>
+
+                <div class="card" id="eta-card"
+                    style="display:none; background: var(--accent-light); border-color: var(--accent-light); margin-bottom: 24px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                        <strong id="eta-text"
+                            style="color:var(--accent-dark); font-family:var(--font-heading); font-size:1.1rem;">Estimated
+                            delivery: Calc...</strong>
+                    </div>
+                    <div style="font-size: 0.9rem; color: var(--accent); display:flex; gap:16px; flex-wrap: wrap;">
+                        <span id="eta-distance">📍 Distance: -- km</span>
+                        <span id="eta-drone">🚁 Assigned drone: D-CUST</span>
+                        <span id="eta-battery">⚡ Battery Drop: --% (ML Predicted)</span>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-block" id="confirm-order-btn" disabled>Confirm Order</button>
+
+            </div>
+
+            <!-- Right Column (Live Preview) -->
+            <div class="right-col">
+                <div id="preview-map" class="preview-map-box"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/mock-data.js"></script>
+    <script src="js/ui.js?v=3"></script>
+    <script src="js/order.js?v=3"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.HDL_CUSTOMER.UI.requireLogin()) return;
+            window.HDL_CUSTOMER.OrderFlow.initPlaceOrder();
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Unified Login | HDL System</title>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+    rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg-base: #F9FAFB;
+      --bg-surface: #FFFFFF;
+      --border: #E5E7EB;
+      --accent: #2563EB;
+      --text-primary: #111827;
+      --text-secondary: #6B7280;
+      --danger: #EF4444;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: radial-gradient(circle at center, #FFFFFF, #F3F4F6);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-primary);
+    }
+
+    .login-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+      width: 100%;
+      max-width: 400px;
+      padding: 40px 32px;
+      overflow: hidden;
+    }
+
+    .logo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+      color: var(--accent);
+    }
+
+    .logo h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.5rem;
+      color: var(--text-primary);
+    }
+
+    .role-toggle {
+      display: flex;
+      background: #F3F4F6;
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .role-btn {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+      z-index: 2;
+    }
+
+    .role-btn.active {
+      color: var(--text-primary);
+    }
+
+    .slider {
+      position: absolute;
+      top: 4px;
+      bottom: 4px;
+      width: calc(50% - 4px);
+      background: #FFFFFF;
+      border-radius: 6px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      z-index: 1;
+    }
+
+    .slider.right {
+      transform: translateX(100%);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 12px 16px;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--accent);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: #1D4ED8;
+      transform: translateY(-1px);
+    }
+
+    .extra-link {
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.85rem;
+    }
+
+    .extra-link a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .error {
+      color: var(--danger);
+      font-size: 0.85rem;
+      text-align: center;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .shake {
+      animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
+    }
+
+    @keyframes shake {
+
+      10%,
+      90% {
+        transform: translate3d(-1px, 0, 0);
+      }
+
+      20%,
+      80% {
+        transform: translate3d(2px, 0, 0);
+      }
+
+      30%,
+      50%,
+      70% {
+        transform: translate3d(-4px, 0, 0);
+      }
+
+      40%,
+      60% {
+        transform: translate3d(4px, 0, 0);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="login-box" id="login-card">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+      </svg>
+      <h1>HDL Identity</h1>
+    </div>
+
+    <div class="role-toggle">
+      <div class="slider" id="role-slider"></div>
+      <div class="role-btn active" id="btn-customer" onclick="switchRole('customer')">Customer</div>
+      <div class="role-btn" id="btn-operator" onclick="switchRole('operator')">Operator</div>
+    </div>
+
+    <!-- Unified Form -->
+    <form id="auth-form" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label>Email Address</label>
+        <input type="email" id="email" class="form-control" value="aryan@demo.com" required>
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" class="form-control" value="demo123" required>
+      </div>
+
+      <div class="error" id="error-msg">Invalid credentials</div>
+
+      <button type="submit" class="btn" id="submit-btn" style="margin-bottom: 16px;">Sign In</button>
+    </form>
+
+    <div class="extra-link" id="register-link">
+      <span style="color:var(--text-secondary)">New user?</span> <a href="customer/register.html">Create an account</a>
+    </div>
+    <div class="extra-link" style="display:none;" id="forgot-link">
+      <a href="#">Forgot operator password?</a>
+    </div>
+  </div>
+
+  <script>
+    let currentRole = 'customer';
+
+    const CUSTOMER_USERS = [
+      { email: "aryan@demo.com", password: "demo123", name: "Aryan Sharma", role: "customer" },
+      { email: "priya@demo.com", password: "demo456", name: "Priya Nair", role: "customer" }
+    ];
+
+    const OPERATOR_USERS = [
+      { email: "admin@hdl.com", password: "admin", name: "Administrator", role: "admin" },
+      { email: "dev@hdl.com", password: "dev", name: "Developer", role: "developer" },
+      { email: "research@hdl.com", password: "research", name: "Researcher", role: "researcher" }
+    ];
+
+    function switchRole(role) {
+      currentRole = role;
+      document.getElementById('error-msg').style.display = 'none';
+
+      if (role === 'customer') {
+        document.getElementById('role-slider').classList.remove('right');
+        document.getElementById('btn-customer').classList.add('active');
+        document.getElementById('btn-operator').classList.remove('active');
+
+        document.getElementById('email').value = "aryan@demo.com";
+        document.getElementById('password').value = "demo123";
+
+        document.getElementById('register-link').style.display = 'block';
+        document.getElementById('forgot-link').style.display = 'none';
+      } else {
+        document.getElementById('role-slider').classList.add('right');
+        document.getElementById('btn-operator').classList.add('active');
+        document.getElementById('btn-customer').classList.remove('active');
+
+        document.getElementById('email').value = "admin@hdl.com";
+        document.getElementById('password').value = "admin";
+
+        document.getElementById('register-link').style.display = 'none';
+        document.getElementById('forgot-link').style.display = 'block';
+      }
+    }
+
+    function shakeCard() {
+      const card = document.getElementById('login-card');
+      card.classList.add('shake');
+      setTimeout(() => card.classList.remove('shake'), 400);
+      document.getElementById('error-msg').style.display = 'block';
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const pass = document.getElementById('password').value;
+      const btn = document.getElementById('submit-btn');
+
+      btn.innerHTML = "Authenticating...";
+      btn.disabled = true;
+
+      setTimeout(() => {
+        btn.innerHTML = "Sign In";
+        btn.disabled = false;
+
+        if (currentRole === 'customer') {
+          // Check local storage for newly registered customers too
+          const lsCusts = JSON.parse(localStorage.getItem('hdl_customers_db') || '[]');
+          const allCustomers = [...CUSTOMER_USERS, ...lsCusts];
+
+          const match = allCustomers.find(u => u.email === email && u.password === pass);
+
+          if (match) {
+            localStorage.setItem('hdl_customer', JSON.stringify({ id: match.id || 'C001', name: match.name, email: match.email }));
+            window.location.href = 'customer/index.html'; // Go to customer landing page
+          } else {
+            shakeCard();
+          }
+        } else {
+          // Operator
+          const match = OPERATOR_USERS.find(u => u.email === email && u.password === pass);
+          if (match) {
+            localStorage.setItem('hdl_user', JSON.stringify({
+              token: 'mock-jwt-token-7xyz',
+              role: match.role,
+              name: match.name
+            }));
+            window.location.href = 'admin/dashboard.html'; // Go to admin dashboard
+          } else {
+            shakeCard();
+          }
+        }
+      }, 600);
+    }
+  </script>
+</body>
+
+</html>

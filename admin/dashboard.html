@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | HDL Quick-Commerce</title>
+
+    <!-- Leaflet.js (maps) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Chart.js (charts) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Socket.IO client (WebSocket) -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap"
+        rel="stylesheet" />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+
+    <style>
+        /* Dashboard specific layout */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: 32px;
+            height: 32px;
+            color: var(--accent);
+            opacity: 0.8;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-family: var(--font-heading);
+            margin-top: 8px;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media(max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .map-container {
+            height: 350px;
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .health-panel {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app-container">
+
+        <!-- Sidebar -->
+        <aside id="sidebar">
+            <div class="logo-container">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24"
+                    style="color:var(--accent);">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                <h1>HDL System</h1>
+            </div>
+
+            <nav>
+                <a href="dashboard.html" class="nav-item">
+                    <span>📊</span> Dashboard
+                </a>
+                <a href="orders.html" class="nav-item">
+                    <span>📦</span> Orders
+                </a>
+                <a href="map.html" class="nav-item">
+                    <span>🗺️</span> Live Map
+                </a>
+                <a href="drones.html" class="nav-item">
+                    <span>🚁</span> Drone Fleet
+                </a>
+                <a href="assignments.html" class="nav-item">
+                    <span>📋</span> Assignments
+                </a>
+                <a href="analytics.html" class="nav-item">
+                    <span>📈</span> Analytics
+                </a>
+                <a href="dark-stores.html" class="nav-item">
+                    <span>🏪</span> Dark Stores
+                </a>
+                <div class="nav-divider"></div>
+                <a href="simulation.html" class="nav-item admin-only dev-only">
+                    <span>🎮</span> Simulation
+                </a>
+                <a href="benchmarks.html" class="nav-item admin-only dev-only">
+                    <span>⚡</span> Benchmarks
+                </a>
+                <a href="settings.html" class="nav-item admin-only">
+                    <span>⚙️</span> Settings
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main id="main-content">
+
+            <!-- Topbar -->
+            <header id="topbar">
+                <h2 class="page-title">Dashboard</h2>
+                <div class="status-center">
+                    <div class="status-dot tooltip"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="user-controls">
+                    <span class="user-name">User</span>
+                    <button class="btn-logout">Logout</button>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div id="page-content">
+                <div class="container">
+
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="card stat-card">
+                            <span class="stat-label">Total Active Orders</span>
+                            <div class="stat-value" id="stat-orders">12</div>
+                            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path
+                                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+                                </path>
+                                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                            </svg>
+                        </div>
+                        <div class="card stat-card">
+                            <span class="stat-label">Available Drones</span>
+                            <div class="stat-value" id="stat-available-drones">5</div>
+                            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                        </div>
+                        <div class="card stat-card">
+                            <span class="stat-label">Drones In-Flight</span>
+                            <div class="stat-value" id="stat-inflight-drones">7</div>
+                            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M5 12h14"></path>
+                                <path d="M12 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                        <div class="card stat-card">
+                            <span class="stat-label">Completed Today</span>
+                            <div class="stat-value" id="stat-completed">34</div>
+                            <svg class="stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <!-- Mini Map -->
+                        <div class="card" style="padding: 16px;">
+                            <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Live Fleet Overview</h3>
+                            <div id="mini-map" class="map-container"></div>
+                        </div>
+
+                        <!-- Recent Assignments -->
+                        <div class="card"
+                            style="padding: 16px; overflow: hidden; display: flex; flex-direction: column;">
+                            <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Recent Assignments</h3>
+                            <div class="table-container" style="flex: 1;">
+                                <table id="dashboard-assignments-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Order ID</th>
+                                            <th>Drone</th>
+                                            <th>Status</th>
+                                            <th>ETA</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Health -->
+                    <div class="card" style="padding: 16px;">
+                        <h3 style="margin-bottom: 16px; font-size: 1.1rem;">System Health</h3>
+                        <div class="health-panel">
+                            <span class="badge success">● Backend Online</span>
+                            <span class="badge success">● WebSocket Connected</span>
+                            <span class="badge success">● Weather API Active</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/mock-data.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/router.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize layout highlights and routes
+            if (window.HDL.Router) window.HDL.Router.init();
+
+            // Initialize mock data table
+            const tableBody = document.querySelector('#dashboard-assignments-table tbody');
+            let assignmentsHtml = '';
+            const recentAssignments = window.HDL.mockData.assignments.slice(0, 8);
+
+            if (recentAssignments.length === 0) {
+                window.HDL.UI.showEmptyState('dashboard-assignments-table', '', 'No assignments', 'There are no active assignments currently.', null, null);
+            } else {
+                recentAssignments.forEach(a => {
+                    assignmentsHtml += `
+            <tr>
+              <td><strong>${a.orderId}</strong></td>
+              <td>${a.droneId}</td>
+              <td><span class="badge info">In-Transit</span></td>
+              <td>${a.eta}</td>
+            </tr>
+          `;
+                });
+                tableBody.innerHTML = assignmentsHtml;
+            }
+
+            // Init Leaflet Mini Map
+            setTimeout(() => {
+                const miniMap = L.map('mini-map', {
+                    zoomControl: false,
+                    attributionControl: false
+                }).setView([17.3850, 78.4867], 12);
+
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    maxZoom: 19
+                }).addTo(miniMap);
+
+                // Add drones to map
+                window.HDL.mockData.drones.forEach(d => {
+                    if (d.status === 'in-flight' || d.status === 'assigned') {
+                        // Find assignment for dummy coords if possible, or just generate close random coords
+                        const offsetLat = (Math.random() - 0.5) * 0.04;
+                        const offsetLng = (Math.random() - 0.5) * 0.05;
+
+                        let color = '#00D4FF';
+                        if (d.status === 'in-flight') color = '#22C55E';
+                        if (d.status === 'assigned') color = '#F59E0B';
+                        if (d.status === 'failed') color = '#EF4444';
+
+                        L.circleMarker([17.3850 + offsetLat, 78.4867 + offsetLng], {
+                            radius: 6,
+                            fillColor: color,
+                            color: '#FFFFFF',
+                            weight: 1,
+                            fillOpacity: 1
+                        }).addTo(miniMap).bindTooltip(`Drone ${d.id}`);
+                    }
+                });
+            }, 300);
+
+        });
+    </script>
+</body>
+
+</html>

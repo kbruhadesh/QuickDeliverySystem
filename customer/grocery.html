@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Commerce | HDL Delivery</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+  
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  
+  <style>
+    .category-scroll {
+      display: flex;
+      overflow-x: auto;
+      gap: 12px;
+      padding-bottom: 8px;
+      margin-bottom: 24px;
+      scrollbar-width: none;
+    }
+    .category-scroll::-webkit-scrollbar { display: none; }
+    
+    .cat-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: var(--radius-xl);
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .cat-pill.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 80px; /* space for floating cart */
+    }
+    
+    .product-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .product-img {
+      width: 100%;
+      height: 100px;
+      background: var(--bg-muted);
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+    }
+    .product-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 4px;
+      line-height: 1.2;
+    }
+    .product-details {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+    }
+    .product-footer {
+      margin-top: auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .product-price {
+      font-family: var(--font-heading);
+      font-weight: 800;
+      color: var(--text-primary);
+    }
+    .add-btn {
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      padding: 4px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .add-btn:hover { background: var(--accent); color: #fff; }
+    
+    .floating-cart {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 400px;
+      background: var(--accent);
+      color: #fff;
+      padding: 16px 20px;
+      border-radius: var(--radius-lg);
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 10px 25px rgba(0,85,255,0.3);
+      cursor: pointer;
+      z-index: 100;
+      font-weight: 700;
+    }
+    
+    .cart-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 1000;
+      display: none;
+      justify-content: center;
+      align-items: flex-end;
+    }
+    .cart-panel {
+      background: #fff;
+      width: 100%;
+      max-width: 500px;
+      height: 80vh;
+      border-radius: 20px 20px 0 0;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      animation: slideUp 0.3s ease forwards;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    
+    .pincode-modal {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--bg-page);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Pincode Wall -->
+  <div class="pincode-modal" id="pincode-modal">
+    <div class="card" style="width: 100%; max-width: 400px; text-align: center;">
+      <div style="font-size:3rem; margin-bottom:16px;">📍</div>
+      <h2 style="font-family: var(--font-heading); margin-bottom: 12px;">Where to deliver?</h2>
+      <p style="color:var(--text-secondary); margin-bottom: 24px;">Enter your area pincode to connect to the nearest dark store for 10-minute delivery.</p>
+      
+      <div class="form-group">
+        <input type="text" id="pincode-input" class="input-control" placeholder="e.g. 500081" maxlength="6" style="text-align:center; font-size:1.2rem; letter-spacing:4px; font-weight:700;">
+      </div>
+      <div id="pincode-error" style="color:var(--danger); font-size:0.85rem; margin-bottom:16px; display:none;">No dark stores service this pincode yet!</div>
+      
+      <button class="btn btn-primary btn-block" id="check-pincode-btn">Check Availability</button>
+      <button class="btn btn-outline btn-block" style="margin-top:12px; background:none; border:none; text-shadow:none;" onclick="window.location.href='index.html'">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+        </svg>
+        HDL <span style="font-size: 0.8rem; background: var(--accent-light); color: var(--accent); padding:2px 6px; border-radius:4px; margin-left:8px;">10 MIN</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="grocery.html" class="nav-link active">Groceries</a>
+        <a href="my-orders.html" class="nav-link auth-only">Orders</a>
+        <a href="track.html" class="nav-link auth-only">Track</a>
+      </div>
+      <div class="nav-profile guest-only">
+        <a href="login.html" class="btn btn-outline" style="min-height:36px; padding:6px 16px;">Log In</a>
+      </div>
+      <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+
+  <div class="page-wrapper container">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div>
+            <h1 style="font-size: 1.5rem; margin-bottom: 4px;">Delivering to <span id="current-pincode" style="color:var(--accent);">--</span></h1>
+            <p style="color:var(--text-secondary); font-size:0.9rem;">Serviced by: <span id="current-store">--</span></p>
+        </div>
+        <button class="btn btn-outline" style="min-height:32px; padding:4px 12px; font-size:0.8rem;" onclick="document.getElementById('pincode-modal').style.display='flex'">Change</button>
+    </div>
+    
+    <div class="category-scroll">
+      <div class="cat-pill active">🍎 Fresh</div>
+      <div class="cat-pill">🥨 Snacks</div>
+      <div class="cat-pill">🥛 Dairy</div>
+      <div class="cat-pill">🥤 Drinks</div>
+      <div class="cat-pill">🧼 Care</div>
+    </div>
+    
+    <div class="product-grid" id="product-grid">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
+  <div class="floating-cart" id="floating-cart" onclick="openCart()">
+    <div><span id="cart-count">0</span> Items | ₹<span id="cart-total">0</span></div>
+    <div>View Cart →</div>
+  </div>
+
+  <!-- Cart Modal -->
+  <div class="cart-overlay" id="cart-overlay" onclick="if(event.target === this) closeCart()">
+    <div class="cart-panel">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+        <h2 style="font-family: var(--font-heading);">Checkout</h2>
+        <button style="background:none; border:none; font-size:1.5rem; cursor:pointer;" onclick="closeCart()">&times;</button>
+      </div>
+      
+      <div id="cart-items" style="flex:1; overflow-y:auto; margin-bottom:16px;">
+          <!-- Cart content -->
+      </div>
+      
+      <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 16px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:var(--text-secondary);">
+              <span>Item Total</span>
+              <span>₹<span id="checkout-subtotal">0</span></span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:var(--text-secondary);">
+              <span>Drone Delivery Fee</span>
+              <span><strike>₹50</strike> <span style="color:var(--success);">FREE</span></span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-weight:800; font-size:1.2rem; margin-top:12px;">
+              <span>Grand Total</span>
+              <span>₹<span id="checkout-total">0</span></span>
+          </div>
+      </div>
+      
+      <button class="btn btn-primary btn-block" id="pay-btn" style="height:52px; font-size:1.1rem;">Pay & Place Order</button>
+    </div>
+  </div>
+
+  <script src="js/ui.js"></script>
+  <script>
+    const DARK_STORES = [
+        { id: "DS-1", name: "Banjara Hills Node", pincodes: ["500034", "500004", "500028"], lat: 17.412, lng: 78.448 },
+        { id: "DS-2", name: "Gachibowli Hub", pincodes: ["500032", "500081", "500019"], lat: 17.440, lng: 78.348 },
+        { id: "DS-3", name: "Hi-Tech City Express", pincodes: ["500081", "500084"], lat: 17.447, lng: 78.376 }
+    ];
+
+    const PRODUCTS = [
+        { id: 1, name: "Farm Fresh Milk", desc: "500 ml", price: 30, emoji: "🥛" },
+        { id: 2, name: "Whole Wheat Bread", desc: "400 g", price: 45, emoji: "🍞" },
+        { id: 3, name: "Bananas (Robusta)", desc: "1/2 Dozen", price: 50, emoji: "🍌" },
+        { id: 4, name: "Red Tomatoes", desc: "500 g", price: 40, emoji: "🍅" },
+        { id: 5, name: "Potato Chips - Salted", desc: "100 g", price: 35, emoji: "🥔" },
+        { id: 6, name: "Cold Brew Coffee", desc: "250 ml", price: 120, emoji: "🥤" },
+        { id: 7, name: "Organic Eggs", desc: "Pack of 6", price: 65, emoji: "🥚" },
+        { id: 8, name: "Dark Chocolate", desc: "100 g", price: 100, emoji: "🍫" },
+    ];
+
+    let cart = {};
+    let activeStore = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Pincode validation
+        const savedPin = localStorage.getItem('hdl_pincode');
+        if(savedPin) {
+            validatePincode(savedPin);
+        }
+
+        document.getElementById('check-pincode-btn').addEventListener('click', () => {
+            const val = document.getElementById('pincode-input').value;
+            validatePincode(val);
+        });
+        
+        // Render Products
+        const grid = document.getElementById('product-grid');
+        PRODUCTS.forEach(p => {
+            grid.innerHTML += `
+                <div class="product-card">
+                    <div class="product-img">${p.emoji}</div>
+                    <div class="product-name">${p.name}</div>
+                    <div class="product-details">${p.desc}</div>
+                    <div class="product-footer">
+                        <div class="product-price">₹${p.price}</div>
+                        <button class="add-btn" onclick="addToCart(${p.id})">ADD</button>
+                    </div>
+                </div>
+            `;
+        });
+        
+        document.getElementById('pay-btn').addEventListener('click', handlePayment);
+    });
+
+    function validatePincode(pin) {
+        document.getElementById('pincode-error').style.display = 'none';
+        const store = DARK_STORES.find(s => s.pincodes.includes(pin));
+        
+        if(store) {
+            activeStore = store;
+            localStorage.setItem('hdl_pincode', pin);
+            document.getElementById('pincode-modal').style.display = 'none';
+            document.getElementById('current-pincode').textContent = pin;
+            document.getElementById('current-store').textContent = store.name;
+        } else {
+            document.getElementById('pincode-error').style.display = 'block';
+        }
+    }
+
+    function addToCart(id) {
+        if(!cart[id]) cart[id] = 0;
+        cart[id]++;
+        updateCartUI();
+    }
+    
+    function removeFromCart(id) {
+        if(cart[id]) cart[id]--;
+        if(cart[id] === 0) delete cart[id];
+        updateCartUI();
+        renderCart();
+    }
+
+    function updateCartUI() {
+        let count = 0;
+        let total = 0;
+        for(const [id, qty] of Object.entries(cart)) {
+            count += qty;
+            const p = PRODUCTS.find(x => x.id == id);
+            total += (p.price * qty);
+        }
+        
+        const floatCart = document.getElementById('floating-cart');
+        if(count > 0) {
+            floatCart.style.display = 'flex';
+            document.getElementById('cart-count').textContent = count;
+            document.getElementById('cart-total').textContent = total;
+            document.getElementById('checkout-subtotal').textContent = total;
+            document.getElementById('checkout-total').textContent = total;
+        } else {
+            floatCart.style.display = 'none';
+            closeCart();
+        }
+    }
+
+    function openCart() {
+        if(!window.HDL_CUSTOMER.UI.requireLogin()) return;
+        document.getElementById('cart-overlay').style.display = 'flex';
+        renderCart();
+    }
+    function closeCart() { document.getElementById('cart-overlay').style.display = 'none'; }
+
+    function renderCart() {
+        const cItems = document.getElementById('cart-items');
+        cItems.innerHTML = '';
+        for(const [id, qty] of Object.entries(cart)) {
+            const p = PRODUCTS.find(x => x.id == id);
+            cItems.innerHTML += `
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="font-size:1.5rem;">${p.emoji}</div>
+                        <div>
+                            <div style="font-weight:600; font-size:0.95rem;">${p.name}</div>
+                            <div style="color:var(--text-secondary); font-size:0.8rem;">₹${p.price}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <button class="add-btn" style="padding:2px 8px; font-weight:normal;" onclick="removeFromCart(${id})">-</button>
+                        <span style="font-weight:600;">${qty}</span>
+                        <button class="add-btn" style="padding:2px 8px; font-weight:normal;" onclick="addToCart(${id})">+</button>
+                    </div>
+                </div>
+            `;
+        }
+    }
+
+    function handlePayment(e) {
+        const btn = e.target;
+        btn.innerHTML = "Processing Payment...";
+        btn.disabled = true;
+        
+        setTimeout(() => {
+            // Create Order
+            localStorage.setItem('hdl_latest_order', JSON.stringify({
+              id: 'HDL-GC-' + Math.floor(1000 + Math.random()*9000),
+              type: "GROCERY",
+              pickup: { lat: activeStore.lat, lng: activeStore.lng }, // Route from store
+              delivery: { lat: 17.432, lng: 78.407 }, // Mock user location
+              eta: 12, // 12 mins for grocery mostly
+              drone: 'D-11',
+              store: activeStore.name,
+              items: Object.keys(cart).length
+            }));
+            window.location.href = 'order-confirmed.html';
+        }, 1500);
+    }
+  </script>
+</body>
+</html>

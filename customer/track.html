@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Track Order | HDL Delivery</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/map.css">
+
+    <style>
+        .track-map-container {
+            position: relative;
+            height: 400px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        @media(max-width: 768px) {
+            .track-map-container {
+                height: 280px;
+            }
+
+            .container {
+                padding: 16px;
+            }
+        }
+
+        .countdown-timer {
+            font-family: var(--font-heading);
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--accent);
+            line-height: 1;
+            margin-bottom: 8px;
+        }
+
+        .telemetry-strip {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .tel-pill {
+            background: var(--bg-muted);
+            padding: 8px 16px;
+            border-radius: var(--radius-xl);
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .delivery-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                HDL
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+                <a href="track.html" class="nav-link active auth-only">Track</a>
+            </div>
+            <div class="nav-profile auth-only" onclick="window.location.href='profile.html'">
+                <div
+                    style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                    <span class="user-greeting">U</span>
+                </div>
+            </div>
+            <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+        <a href="track.html" class="nav-link active auth-only">Track</a>
+        <a href="profile.html" class="nav-link auth-only">Profile</a>
+    </div>
+
+    <div class="page-wrapper container" style="max-width: 800px;">
+
+        <!-- Empty State -->
+        <div id="empty-track" style="display:none; text-align:center; padding: 60px 20px;">
+            <svg style="width:64px; height:64px; color:var(--text-hint); margin-bottom:24px;" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 8 12 12 14 14"></polyline>
+            </svg>
+            <h2 style="margin-bottom:12px;">No active delivery</h2>
+            <p style="color:var(--text-secondary); margin-bottom:32px;">Place an order to start tracking your drone.</p>
+            <button class="btn btn-primary" onclick="window.location.href='place-order.html'">Place Order</button>
+        </div>
+
+        <!-- Active State -->
+        <div id="active-track" style="display:none;">
+
+            <div class="stepper" style="margin-bottom: 24px;">
+                <div class="step-item completed" id="step-track-1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Confirmed</div>
+                </div>
+                <div class="step-item active" id="step-track-2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">Drone Assigned</div>
+                </div>
+                <div class="step-item" id="step-track-3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">In Transit</div>
+                </div>
+                <div class="step-item" id="step-track-4">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Delivered</div>
+                </div>
+            </div>
+
+            <div class="track-map-container">
+                <div id="track-map" style="width:100%; height:100%;"></div>
+
+                <div class="delivery-overlay" id="delivery-overlay">
+                    <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"
+                        style="margin-bottom: 16px;">
+                        <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none" />
+                        <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                    </svg>
+                    <h2 style="font-size:2rem; color:var(--success);">Delivered!</h2>
+                </div>
+            </div>
+
+            <div class="card" style="text-align:center;">
+                <p
+                    style="color:var(--text-secondary); font-weight:600; text-transform:uppercase; font-size:0.8rem; letter-spacing:1px; margin-bottom:12px;">
+                    Arriving in</p>
+                <div class="countdown-timer" id="eta-timer">--:--</div>
+                <p style="color:var(--text-secondary); font-size:0.95rem;">Drone D-07 is on its way</p>
+
+                <div class="telemetry-strip" style="justify-content:center;">
+                    <div class="tel-pill"><span style="color:var(--success)">⚡</span> <span id="tel-batt">74%</span>
+                    <div class="tel-pill" id="ml-batt-pill" style="display:none;"><span style="color:var(--success)">⚡</span> <span id="tel-ml-batt">--</span></div>
+                    <div class="tel-pill"><span style="color:var(--accent)">🔼</span> <span id="tel-alt">50m</span>
+                    </div>
+                    <div class="tel-pill"><span style="color:var(--warning)">💨</span> <span id="tel-wind">12
+                            km/h</span></div>
+                </div>
+            </div>
+
+            <div id="rate-btn-container" style="display:none; margin-top:24px;">
+                <button class="btn btn-primary btn-block" onclick="window.location.href='rate-delivery.html'">Rate your
+                    delivery →</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="js/ui.js?v=4"></script>
+    <script src="js/tracking.js?v=4"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.HDL_CUSTOMER.UI.requireLogin()) return;
+            window.HDL_CUSTOMER.Tracking.initTracker();
+        });
+    </script>
+</body>
+
+</html>

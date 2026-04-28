@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmed | HDL Delivery</title>
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/map.css">
+
+    <style>
+        body {
+            background-color: #FFFFFF;
+        }
+
+        .success-container {
+            max-width: 500px;
+            margin: 60px auto 0 auto;
+            text-align: center;
+            padding: 24px;
+            position: relative;
+        }
+
+        .confetti-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="confetti-container" id="confetti-box"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="brand">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z" />
+                </svg>
+                HDL
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">Home</a>
+                <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+                <a href="track.html" class="nav-link auth-only">Track</a>
+            </div>
+            <div class="nav-profile auth-only" onclick="window.location.href='profile.html'">
+                <div
+                    style="width:32px; height:32px; border-radius:50%; background:var(--accent); color:white; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:14px;">
+                    <span class="user-greeting">U</span>
+                </div>
+            </div>
+            <button class="hamburger" id="hamburger"><span></span><span></span><span></span></button>
+        </div>
+    </nav>
+
+    <div class="mobile-nav-overlay" id="mobile-nav-overlay">
+        <a href="index.html" class="nav-link">Home</a>
+        <a href="my-orders.html" class="nav-link auth-only">My Orders</a>
+        <a href="track.html" class="nav-link auth-only">Track</a>
+        <a href="profile.html" class="nav-link auth-only">Profile</a>
+    </div>
+
+    <div class="page-wrapper container">
+
+        <div class="success-container">
+            <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none" />
+                <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+            </svg>
+
+            <h1 style="font-size: 2.2rem; margin-bottom: 12px;">Order confirmed!</h1>
+            <p style="color:var(--text-secondary); font-size: 1.1rem; margin-bottom: 32px;">Your drone is being assigned. Estimated delivery: <span id="eta-summary">22</span> minutes.</p>
+      
+            <div class="card" style="text-align:left; background: var(--bg-page); margin-bottom: 40px;">
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+                    <span style="color:var(--text-secondary)">Order ID</span>
+                    <strong id="summary-id">#HDL-XXXX</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                    <span style="color:var(--text-secondary)">Assigned Drone</span>
+                    <strong style="color:var(--accent)" id="drone-id">D-07</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+                    <span style="color:var(--text-secondary)">ETA</span>
+                    <strong>~<span id="eta-mins">22</span> Minutes</strong>
+                </div>
+            </div>
+
+            <button class="btn btn-primary btn-block" style="margin-bottom: 16px;"
+                onclick="window.location.href='track.html'">Track My Delivery</button>
+            <button class="btn btn-outline btn-block" style="background:#fff;"
+                onclick="window.location.href='my-orders.html'">View All Orders</button>
+
+        </div>
+
+    </div>
+
+    <script src="js/ui.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!window.HDL_CUSTOMER.UI.requireLogin()) return;
+
+            const latestStr = localStorage.getItem('hdl_latest_order');
+            if (!latestStr) {
+                window.location.href = 'place-order.html';
+                return;
+            }
+
+            const order = JSON.parse(latestStr);
+            document.getElementById('summary-id').textContent = '#' + order.id;
+      
+            if(order.type === 'GROCERY') {
+                document.getElementById('eta-summary').textContent = order.eta || '12';
+                document.getElementById('eta-mins').textContent = order.eta || '12';
+                document.getElementById('drone-id').textContent = order.drone || 'D-11';
+            } else {
+                document.getElementById('drone-id').textContent = order.drone || 'D-07';
+            }
+
+            // Fire confetti
+            const box = document.getElementById('confetti-box');
+            const colors = ['#0055FF', '#10B981', '#F59E0B', '#EF4444'];
+            for (let i = 0; i < 50; i++) {
+                let conf = document.createElement('div');
+                conf.className = 'confetti';
+                conf.style.left = Math.random() * 100 + 'vw';
+                conf.style.background = colors[Math.floor(Math.random() * colors.length)];
+                conf.style.animation = `fall ${Math.random() * 2 + 2}s linear forwards`;
+                conf.style.animationDelay = Math.random() * 2 + 's';
+                box.appendChild(conf);
+            }
+        });
+    </script>
+</body>
+
+</html>
