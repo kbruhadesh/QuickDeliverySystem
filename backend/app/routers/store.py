@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.database import get_db
 from app.db_models.store import Store
@@ -10,10 +11,13 @@ from app.schemas.product import ProductResponse
 router = APIRouter(prefix="/store", tags=["Store"])
 
 
-# 🔍 GET STORES BY PINCODE
+# 🔍 GET STORES BY PINCODE OR ALL
 @router.get("/", response_model=list[StoreResponse])
-def get_stores(pincode: str, db: Session = Depends(get_db)):
-    stores = db.query(Store).filter(Store.pincode == pincode).all()
+def get_stores(pincode: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    if pincode:
+        stores = db.query(Store).filter(Store.pincode == pincode).all()
+    else:
+        stores = db.query(Store).all()
     return stores
 
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float
 from app.database import Base
 
 class Store(Base):
@@ -8,3 +8,5 @@ class Store(Base):
     name = Column(String)
     pincode = Column(String, index=True)
     address = Column(String)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)

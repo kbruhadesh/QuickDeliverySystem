@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>My Orders | HDL Delivery</title>
 
     <link
@@ -155,7 +158,6 @@
 
     </div>
 
-    <script src="js/mock-data.js"></script>
     <script src="js/ui.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -176,29 +178,31 @@
                         const dbOrders = await res.json();
                         // Map dbOrders to the format our UI expects
                         allOrders = dbOrders.map(o => ({
+                            raw_id: o.id,
                             id: "HDL-" + o.id,
                             status: o.status.toUpperCase() === "PENDING" ? "CONFIRMED" : o.status.toUpperCase(),
-                            pickup: "Assigned Store",
-                            delivery: "Home Address",
+                            pickup: (o.pickup_latitude && o.pickup_longitude) ? `${o.pickup_latitude.toFixed(4)}, ${o.pickup_longitude.toFixed(4)}` : "Store Node",
+                            delivery: (o.delivery_latitude && o.delivery_longitude) ? `${o.delivery_latitude.toFixed(4)}, ${o.delivery_longitude.toFixed(4)}` : "Customer Drop",
                             weight: "₹" + o.total_amount,
-                            created: new Date().toISOString()
+                            created: o.created_at || new Date().toISOString()
                         }));
                     }
                 } catch(e) {
                     console.error("API fetch failed, falling back to local simulation.", e);
                 }
                 
-                // Keep local tracking logic for simulation map UX
+                // Optional: We can read hdl_latest_order to add UI specific details to the matching DB order
+                // but we no longer inject a fake order array object here.
                 const latestOrder = localStorage.getItem('hdl_latest_order');
                 if (latestOrder) {
                     const lo = JSON.parse(latestOrder);
-                    if (!allOrders.find(o => o.id === lo.id || o.id === ("HDL-"+lo.id))) {
-                        allOrders.unshift({
-                            id: lo.id, status: 'IN_TRANSIT', pickup: lo.store || "Custom Location", delivery: "Customer Location",
-                            weight: "1-2 kg", drone: lo.drone, created: new Date().toISOString(), type: lo.type, items: lo.items
-                        });
+                    const matchingOrder = allOrders.find(o => o.id === ("HDL-"+lo.id));
+                    if (matchingOrder) {
+                        matchingOrder.type = lo.type;
+                        matchingOrder.items = lo.items;
                     }
                 }
+                
                 renderOrders('all');
             }
 
@@ -222,7 +226,8 @@
                                 window.HDL_CUSTOMER.UI.formatDateTime(o.created));
 
                         const actionBtn = (o.status === 'IN_TRANSIT' || o.status === 'CONFIRMED')
-                            ? `<button class="btn btn-primary" onclick="window.location.href='track.html'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Track Live</button>`
+                            ? `<button class="btn btn-outline" onclick="cancelOrder(${o.raw_id})" style="min-height:36px; padding:6px 16px; font-size:0.9rem; color:var(--danger); border-color:var(--danger); margin-right:8px;">Cancel</button>
+                               <button class="btn btn-primary" onclick="window.location.href='track.html'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Track Live</button>`
                             : `<button class="btn btn-outline" onclick="window.location.href='place-order.html'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Reorder</button>`;
 
                         list.innerHTML += `
@@ -243,13 +248,38 @@
                 </div>
                 <div class="order-footer">
                   <div style="background:var(--bg-muted); padding:4px 12px; border-radius:12px; font-size:0.8rem; font-weight:600;">📦 ${o.type === 'GROCERY' ? o.items + ' Items' : o.weight}</div>
-                  ${actionBtn}
+                  <div>${actionBtn}</div>
                 </div>
               </div>
             `;
                     });
                 }
             }
+
+            window.cancelOrder = async function(orderId) {
+                if (!confirm("Are you sure you want to cancel this order?")) return;
+                try {
+                    const res = await fetch(`http://localhost:8000/orders/${orderId}?token=${token}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        window.HDL_CUSTOMER.UI.showToast("Order Cancelled Successfully", "success");
+                        // If it was the actively tracked order, clear it
+                        const latestOrder = localStorage.getItem('hdl_latest_order');
+                        if (latestOrder) {
+                            const lo = JSON.parse(latestOrder);
+                            if (lo.id === orderId) {
+                                localStorage.removeItem('hdl_latest_order');
+                            }
+                        }
+                        // Refresh the list
+                        fetchOrders();
+                    } else {
+                        const data = await res.json();
+                        alert("Failed to cancel order: " + (data.detail || ""));
+                    }
+                } catch (e) {
+                    alert("API connection failed while cancelling order.");
+                }
+            };
 
             // Trigger fetch on load
             fetchOrders();

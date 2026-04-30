@@ -44,42 +44,100 @@ window.HDL_CUSTOMER.OrderFlow = {
         });
 
         // ETA btn
-        document.getElementById('calc-eta-btn').addEventListener('click', (e) => {
+        document.getElementById('calc-eta-btn').addEventListener('click', async (e) => {
             window.HDL_CUSTOMER.UI.showSpinner(e.target);
-            setTimeout(() => {
+
+            try {
+                // Parse weight
+                const weightSelect = document.getElementById('package-weight');
+                let weightKg = 1.0;
+                if (weightSelect && weightSelect.value) {
+                    if (weightSelect.value.includes('1-2')) weightKg = 1.5;
+                    else if (weightSelect.value.includes('2-3')) weightKg = 2.5;
+                    else if (weightSelect.value.includes('3-5')) weightKg = 4.0;
+                }
+
+                const res = await fetch(`http://localhost:8000/orders/calculate_eta`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pickup_latitude: this.pickupLatlng.lat,
+                        pickup_longitude: this.pickupLatlng.lng,
+                        delivery_latitude: this.deliveryLatlng.lat,
+                        delivery_longitude: this.deliveryLatlng.lng,
+                        weight_kg: weightKg
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok) {
+                    // Show ETA Card
+                    const etaCard = document.getElementById('eta-card');
+                    if (etaCard) {
+                        etaCard.innerHTML = `
+                            <div class="eta-card">
+                                <h3>Estimated delivery: ${data.eta_min} minutes</h3>
+                                <p>Distance: ${data.distance_km} km · Est. Battery Drop: ${data.battery_drop}%</p>
+                            </div>
+                        `;
+                        etaCard.style.display = 'block';
+                    }
+
+                    document.getElementById('confirm-order-btn').disabled = false;
+
+                    // Save calculated path temporarily
+                    this.calculatedPath = data.path;
+                    this.calculatedEta = data.eta_min;
+
+                    // Draw the ACTUAL RRT* path on the preview map
+                    if (this.previewRoute) this.previewMap.removeLayer(this.previewRoute);
+                    this.previewRoute = L.polyline(this.calculatedPath, { color: 'var(--accent)', weight: 4 }).addTo(this.previewMap);
+                    this.previewMap.fitBounds(this.previewRoute.getBounds(), { padding: [40, 40] });
+                } else {
+                    alert("Failed to calculate ETA: " + (data.detail || ""));
+                }
+            } catch (err) {
+                alert("API connection failed.");
+            } finally {
                 window.HDL_CUSTOMER.UI.hideSpinner(e.target);
-                document.getElementById('eta-card').style.display = 'block';
-                document.getElementById('confirm-order-btn').disabled = false;
-            }, 1200);
+            }
         });
 
         // Confirm Btn
         document.getElementById('confirm-order-btn').addEventListener('click', async (e) => {
             window.HDL_CUSTOMER.UI.showSpinner(e.target);
-            
+
             const token = localStorage.getItem('hdl_customer_token');
             if (!token) {
                 alert("Please login first.");
                 window.location.href = 'login.html';
                 return;
             }
-            
+
             try {
                 const res = await fetch(`http://localhost:8000/orders/?token=${token}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ items: [] }) // Package delivery has no products
+                    body: JSON.stringify({
+                        items: [],
+                        pickup_latitude: this.pickupLatlng.lat,
+                        pickup_longitude: this.pickupLatlng.lng,
+                        delivery_latitude: this.deliveryLatlng.lat,
+                        delivery_longitude: this.deliveryLatlng.lng
+                    })
                 });
                 const data = await res.json();
-                
+
                 if (res.ok) {
                     localStorage.setItem('hdl_latest_order', JSON.stringify({
                         id: data.order_id,
                         pickup: this.pickupLatlng,
                         delivery: this.deliveryLatlng,
-                        eta: 22,
+                        eta: this.calculatedEta || 22,
                         drone: 'D-07',
-                        type: 'PACKAGE'
+                        type: 'PACKAGE',
+                        route: this.calculatedPath // Store the exact RRT* path!
                     }));
                     window.location.href = 'order-confirmed.html';
                 } else {

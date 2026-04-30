@@ -235,6 +235,13 @@
           <!-- Cart content -->
       </div>
       
+      <div style="margin-bottom: 16px;">
+          <label style="font-size: 0.9rem; font-weight: 600; margin-bottom: 8px; display: block;">Deliver To:</label>
+          <select id="checkout-address" class="input-control" style="width:100%; padding: 8px;">
+              <option value="">Loading addresses...</option>
+          </select>
+      </div>
+      
       <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 16px;">
           <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:var(--text-secondary);">
               <span>Item Total</span>
@@ -243,6 +250,16 @@
           <div style="display:flex; justify-content:space-between; margin-bottom:8px; color:var(--text-secondary);">
               <span>Drone Delivery Fee</span>
               <span><strike>₹50</strike> <span style="color:var(--success);">FREE</span></span>
+          </div>
+          <div id="route-info-container" style="display:none; background:var(--bg-muted); padding:8px 12px; border-radius:8px; margin-top:12px; font-size:0.85rem; color:var(--text-secondary);">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                  <span>Estimated Time:</span>
+                  <span id="cart-eta" style="font-weight:600; color:var(--text);">-- min</span>
+              </div>
+              <div style="display:flex; justify-content:space-between;">
+                  <span>Flight Distance:</span>
+                  <span id="cart-distance" style="font-weight:600; color:var(--text);">-- km</span>
+              </div>
           </div>
           <div style="display:flex; justify-content:space-between; font-weight:800; font-size:1.2rem; margin-top:12px;">
               <span>Grand Total</span>
@@ -256,12 +273,7 @@
 
   <script src="js/ui.js"></script>
   <script>
-    const DARK_STORES = [
-        { id: "DS-1", name: "Banjara Hills Node", pincodes: ["500034", "500004", "500028"], lat: 17.412, lng: 78.448 },
-        { id: "DS-2", name: "Gachibowli Hub", pincodes: ["500032", "500081", "500019"], lat: 17.440, lng: 78.348 },
-        { id: "DS-3", name: "Hi-Tech City Express", pincodes: ["500081", "500084"], lat: 17.447, lng: 78.376 }
-    ];
-
+    let DARK_STORES = [];
     const PRODUCTS = [
         { id: 1, name: "Farm Fresh Milk", desc: "500 ml", price: 30, emoji: "🥛" },
         { id: 2, name: "Whole Wheat Bread", desc: "400 g", price: 45, emoji: "🍞" },
@@ -275,11 +287,31 @@
 
     let cart = {};
     let activeStore = null;
+    let currentRouteData = null;
+    let simulatedDeliveryLat = null;
+    let simulatedDeliveryLng = null;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Fetch Stores from Database
+        try {
+            const res = await fetch('http://localhost:8000/store/');
+            if(res.ok) {
+                const dbStores = await res.json();
+                DARK_STORES = dbStores.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    pincodes: [s.pincode], // We map the db pincode into the expected array format
+                    lat: s.latitude,
+                    lng: s.longitude
+                }));
+            }
+        } catch(e) {
+            console.error("Failed to load stores from database");
+        }
+
         // Pincode validation
         const savedPin = localStorage.getItem('hdl_pincode');
-        if(savedPin) {
+        if(savedPin && DARK_STORES.length > 0) {
             validatePincode(savedPin);
         }
 
@@ -357,11 +389,121 @@
         }
     }
 
-    function openCart() {
+    async function openCart() {
         if(!window.HDL_CUSTOMER.UI.requireLogin()) return;
         document.getElementById('cart-overlay').style.display = 'flex';
         renderCart();
+        
+        // Fetch addresses
+        const token = localStorage.getItem('hdl_customer_token');
+        const addrSelect = document.getElementById('checkout-address');
+        try {
+            const res = await fetch(`http://localhost:8000/address/?token=${token}`);
+            if(res.ok) {
+                const addresses = await res.json();
+                addrSelect.innerHTML = '';
+                if(addresses.length === 0) {
+                    addrSelect.innerHTML = '<option value="">No addresses saved! Please add one in Profile.</option>';
+                } else {
+                    addresses.forEach(a => {
+                        addrSelect.innerHTML += `<option value="${a.id}">${a.street}, ${a.city} - ${a.pincode}</option>`;
+                    });
+                    
+                    // Bind change listener and calculate initial route
+                    addrSelect.addEventListener('change', calculateGroceryRoute);
+                    calculateGroceryRoute();
+                }
+            }
+        } catch(e) {
+            addrSelect.innerHTML = '<option value="">Failed to load addresses</option>';
+        }
     }
+    
+    async function calculateGroceryRoute() {
+        const addrSelect = document.getElementById('checkout-address');
+        if(!addrSelect.value) return;
+        
+        document.getElementById('pay-btn').disabled = true;
+        document.getElementById('pay-btn').innerHTML = "Calculating Route...";
+        
+        // Get the pincode directly from the select text to match store
+        const selectedOption = addrSelect.options[addrSelect.selectedIndex];
+        const addressText = selectedOption.text;
+        
+        // Find pincode in text using regex (6 digits)
+        const pinMatch = addressText.match(/\b\d{6}\b/);
+        const extractedPin = pinMatch ? pinMatch[0] : null;
+        
+        // Temporarily reassign activeStore based on first 3 digits of pincode
+        if (extractedPin) {
+            const prefix = extractedPin.substring(0, 3);
+            const foundStore = DARK_STORES.find(s => {
+                return s.pincodes.some(p => p.startsWith(prefix));
+            });
+            
+            if (foundStore) {
+                activeStore = foundStore;
+            } else {
+                alert(`No store services the region for pincode: ${extractedPin}. We only deliver 10-min groceries to supported regional pincodes!`);
+                document.getElementById('pay-btn').disabled = false;
+                document.getElementById('pay-btn').innerHTML = "Pay & Place Order";
+                return;
+            }
+        }
+
+        // Only geocode if we haven't already for this address to save time
+        if (!selectedOption.dataset.lat || !selectedOption.dataset.lng) {
+            try {
+                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressText)}`);
+                const geoData = await geoRes.json();
+                if (geoData && geoData.length > 0) {
+                    selectedOption.dataset.lat = parseFloat(geoData[0].lat);
+                    selectedOption.dataset.lng = parseFloat(geoData[0].lon);
+                } else {
+                    // Fail completely if we can't geocode
+                    alert("Could not locate this address on the map to calculate drone route.");
+                    document.getElementById('pay-btn').disabled = false;
+                    document.getElementById('pay-btn').innerHTML = "Pay & Place Order";
+                    return;
+                }
+            } catch (e) {
+                alert("Geocoding service unavailable.");
+                document.getElementById('pay-btn').disabled = false;
+                document.getElementById('pay-btn').innerHTML = "Pay & Place Order";
+                return;
+            }
+        }
+        
+        simulatedDeliveryLat = parseFloat(selectedOption.dataset.lat);
+        simulatedDeliveryLng = parseFloat(selectedOption.dataset.lng);
+
+        try {
+            const res = await fetch(`http://localhost:8000/orders/calculate_eta`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pickup_latitude: activeStore.lat,
+                    pickup_longitude: activeStore.lng,
+                    delivery_latitude: simulatedDeliveryLat,
+                    delivery_longitude: simulatedDeliveryLng,
+                    weight_kg: 2.0 // Assume grocery bags are ~2kg
+                })
+            });
+            const data = await res.json();
+            if(res.ok) {
+                currentRouteData = data;
+                document.getElementById('route-info-container').style.display = 'block';
+                document.getElementById('cart-eta').textContent = data.eta_min + ' min';
+                document.getElementById('cart-distance').textContent = data.distance_km + ' km';
+            }
+        } catch(e) {
+            console.error("Failed to calculate route");
+        } finally {
+            document.getElementById('pay-btn').disabled = false;
+            document.getElementById('pay-btn').innerHTML = "Pay & Place Order";
+        }
+    }
+
     function closeCart() { document.getElementById('cart-overlay').style.display = 'none'; }
 
     function renderCart() {
@@ -405,25 +547,40 @@
             quantity: cart[id]
         }));
 
+        const addrSelect = document.getElementById('checkout-address');
+        if(!addrSelect.value) {
+            alert("Please select or add a delivery address in your Profile first.");
+            btn.innerHTML = "Pay & Place Order";
+            btn.disabled = false;
+            return;
+        }
+
         try {
             const res = await fetch(`http://localhost:8000/orders/?token=${token}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: items })
+                body: JSON.stringify({ 
+                    items: items,
+                    pickup_latitude: activeStore.lat,
+                    pickup_longitude: activeStore.lng,
+                    delivery_latitude: simulatedDeliveryLat,
+                    delivery_longitude: simulatedDeliveryLng
+                })
             });
             const data = await res.json();
             
             if (res.ok) {
-                // Keep local logistical tracking alive for the visual map
+                // Keep local logistical tracking alive for the visual map WITH RRT* ROUTE
                 localStorage.setItem('hdl_latest_order', JSON.stringify({
                     id: data.order_id,
                     type: "GROCERY",
                     pickup: { lat: activeStore.lat, lng: activeStore.lng },
-                    delivery: { lat: 17.432, lng: 78.407 },
-                    eta: 12,
+                    delivery: { lat: simulatedDeliveryLat, lng: simulatedDeliveryLng },
+                    eta: currentRouteData ? currentRouteData.eta_min : 12,
                     drone: 'D-11',
                     store: activeStore.name,
-                    items: items.length
+                    items: items.length,
+                    route: currentRouteData ? currentRouteData.path : null // SAVE ACTUAL RRT* PATH HERE!
                 }));
                 window.location.href = 'order-confirmed.html';
             } else {

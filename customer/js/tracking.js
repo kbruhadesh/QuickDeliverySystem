@@ -29,8 +29,13 @@ window.HDL_CUSTOMER.Tracking = {
         this.pickup = order.pickup || { lat: 17.3850, lng: 78.4867 };
         this.delivery = order.delivery || { lat: 17.4450, lng: 78.3867 };
 
-        // Generate fake route points between pickup and delivery
-        this.routeCoords = this.generateFakeRoute(this.pickup, this.delivery, 40);
+        // Ensure we only have a real path 
+        if (!order.route || order.route.length === 0) {
+            alert("No live route available for this order yet.");
+            return;
+        }
+
+        this.routeCoords = order.route;
 
         this.map = L.map('track-map', { zoomControl: false }).setView([this.pickup.lat, this.pickup.lng], 13);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(this.map);
@@ -51,23 +56,15 @@ window.HDL_CUSTOMER.Tracking = {
         this.startSimulation();
 
         // ETA countdown (sync with route duration loosely)
-        // 40 steps at 2000ms = 80 seconds
-        window.HDL_CUSTOMER.UI.animateCountdown(80, 'eta-timer', () => {
+        const totalSteps = this.routeCoords.length;
+        const totalSeconds = totalSteps * 2; // 2 seconds per step
+        
+        window.HDL_CUSTOMER.UI.animateCountdown(totalSeconds, 'eta-timer', () => {
             this.handleDelivered();
         });
     },
 
-    generateFakeRoute: function (start, end, steps) {
-        const pts = [];
-        for (let i = 0; i <= steps; i++) {
-            const lat = start.lat + (end.lat - start.lat) * (i / steps);
-            const lng = start.lng + (end.lng - start.lng) * (i / steps);
-            // add slight curve/noise
-            const noise = i > 0 && i < steps ? (Math.random() - 0.5) * 0.005 : 0;
-            pts.push([lat + noise, lng + noise]);
-        }
-        return pts;
-    },
+
 
     startSimulation: function () {
         this.moveInterval = setInterval(() => {

@@ -1,0 +1,76 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.*
+
+# =========================
+# Build / distribution
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# Logs & temp files
+# =========================
+*.log
+*.tmp
+*.swp
+
+# =========================
+# MacOS
+# =========================
+.DS_Store
+
+# =========================
+# IDE / Editors
+# =========================
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# Node (if frontend uses npm later)
+# =========================
+node_modules/
+package-lock.json
+yarn.lock
+
+# =========================
+# Database / local files
+# =========================
+*.sqlite3
+*.db
+
+# =========================
+# Testing / coverage
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Jupyter (if used)
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# Misc
+# =========================
+*.bak
+*.old

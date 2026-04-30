@@ -4,6 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>HDL | Drone Delivery in 30 Mins</title>
 
     <link
@@ -310,12 +313,11 @@
         <p>© 2026 HDL Drone Delivery.</p>
     </footer>
 
-    <script src="js/mock-data.js"></script>
     <script src="js/ui.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const stats = window.HDL_CUSTOMER.MOCK_LIVE_STATS;
-            const text = `${stats.active_deliveries} deliveries active right now · ${stats.available_drones} drones available pending assignments · Avg delivery time today: ${stats.avg_delivery_min} min`;
+            // TODO: Fetch live stats from backend API
+            const text = "28 deliveries active right now · 12 drones available pending assignments · Avg delivery time today: 14 min";
             // Repeat to make loop smooth
             document.getElementById('live-ticker').innerHTML = `
         <span style="margin-right:50px">${text}</span>
