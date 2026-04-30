@@ -176,7 +176,7 @@
 
                 <div class="telemetry-strip" style="justify-content:center;">
                     <div class="tel-pill"><span style="color:var(--success)">⚡</span> <span id="tel-batt">74%</span>
-                    <div class="tel-pill" id="ml-batt-pill" style="display:none;"><span style="color:var(--success)">⚡</span> <span id="tel-ml-batt">--</span></div>
+                    </div>
                     <div class="tel-pill"><span style="color:var(--accent)">🔼</span> <span id="tel-alt">50m</span>
                     </div>
                     <div class="tel-pill"><span style="color:var(--warning)">💨</span> <span id="tel-wind">12
@@ -192,8 +192,8 @@
         </div>
     </div>
 
-    <script src="js/ui.js?v=4"></script>
-    <script src="js/tracking.js?v=4"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/tracking.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (!window.HDL_CUSTOMER.UI.requireLogin()) return;

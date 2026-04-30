@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.address import Address
-from app.models.user import User
+from app.db_models.address import Address
+from app.db_models.user import User
 from app.schemas.address import AddressCreate, AddressResponse
 from app.utils.jwt_handler import decode_access_token
 

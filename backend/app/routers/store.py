@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.store import Store
-from app.models.product import Product
+from app.db_models.store import Store
+from app.db_models.product import Product
 from app.schemas.store import StoreResponse
 from app.schemas.product import ProductResponse
 

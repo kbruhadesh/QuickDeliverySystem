@@ -388,25 +388,54 @@
         }
     }
 
-    function handlePayment(e) {
+    async function handlePayment(e) {
         const btn = e.target;
         btn.innerHTML = "Processing Payment...";
         btn.disabled = true;
-        
-        setTimeout(() => {
-            // Create Order
-            localStorage.setItem('hdl_latest_order', JSON.stringify({
-              id: 'HDL-GC-' + Math.floor(1000 + Math.random()*9000),
-              type: "GROCERY",
-              pickup: { lat: activeStore.lat, lng: activeStore.lng }, // Route from store
-              delivery: { lat: 17.432, lng: 78.407 }, // Mock user location
-              eta: 12, // 12 mins for grocery mostly
-              drone: 'D-11',
-              store: activeStore.name,
-              items: Object.keys(cart).length
-            }));
-            window.location.href = 'order-confirmed.html';
-        }, 1500);
+
+        const token = localStorage.getItem('hdl_customer_token');
+        if (!token) {
+            alert("Please login first.");
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const items = Object.keys(cart).map(id => ({
+            product_id: parseInt(id),
+            quantity: cart[id]
+        }));
+
+        try {
+            const res = await fetch(`http://localhost:8000/orders/?token=${token}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: items })
+            });
+            const data = await res.json();
+            
+            if (res.ok) {
+                // Keep local logistical tracking alive for the visual map
+                localStorage.setItem('hdl_latest_order', JSON.stringify({
+                    id: data.order_id,
+                    type: "GROCERY",
+                    pickup: { lat: activeStore.lat, lng: activeStore.lng },
+                    delivery: { lat: 17.432, lng: 78.407 },
+                    eta: 12,
+                    drone: 'D-11',
+                    store: activeStore.name,
+                    items: items.length
+                }));
+                window.location.href = 'order-confirmed.html';
+            } else {
+                btn.innerHTML = "Pay & Place Order";
+                btn.disabled = false;
+                alert(data.detail || "Failed to create order.");
+            }
+        } catch (err) {
+            btn.innerHTML = "Pay & Place Order";
+            btn.disabled = false;
+            alert("Network error connecting to API.");
+        }
     }
   </script>
 </body>

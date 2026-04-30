@@ -253,18 +253,49 @@
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // Initialize layout highlights and routes
             if (window.HDL.Router) window.HDL.Router.init();
 
-            // Initialize mock data table
+            // Initialize table
             const tableBody = document.querySelector('#dashboard-assignments-table tbody');
             let assignmentsHtml = '';
-            const recentAssignments = window.HDL.mockData.assignments.slice(0, 8);
-
-            if (recentAssignments.length === 0) {
-                window.HDL.UI.showEmptyState('dashboard-assignments-table', '', 'No assignments', 'There are no active assignments currently.', null, null);
-            } else {
+            
+            try {
+                // Assuming admin uses the same token login pattern
+                const token = localStorage.getItem('hdl_customer_token');
+                if (!token) throw new Error("No token");
+                
+                const res = await fetch(`http://localhost:8000/orders/all?token=${token}`);
+                if (res.ok) {
+                    const dbOrders = await res.json();
+                    
+                    document.getElementById('stat-orders').textContent = dbOrders.length;
+                    
+                    const recentAssignments = dbOrders.slice(-8).reverse();
+                    
+                    if (recentAssignments.length === 0) {
+                        window.HDL.UI.showEmptyState('dashboard-assignments-table', '', 'No orders yet', 'System is waiting for new orders.', null, null);
+                    } else {
+                        recentAssignments.forEach(a => {
+                            assignmentsHtml += `
+                    <tr>
+                      <td><strong>HDL-${a.id}</strong></td>
+                      <td>Assigning...</td>
+                      <td><span class="badge info">${a.status.toUpperCase()}</span></td>
+                      <td>12 mins</td>
+                    </tr>
+                  `;
+                        });
+                        tableBody.innerHTML = assignmentsHtml;
+                    }
+                } else {
+                    throw new Error("Failed fetch");
+                }
+            } catch(e) {
+                // Fallback to mock data if API is down
+                console.warn("API Error, falling back to mock data");
+                const recentAssignments = window.HDL.mockData.assignments.slice(0, 8);
                 recentAssignments.forEach(a => {
                     assignmentsHtml += `
             <tr>
@@ -289,10 +320,9 @@
                     maxZoom: 19
                 }).addTo(miniMap);
 
-                // Add drones to map
+                // Add drones to map (still simulated until WebSockets are wired)
                 window.HDL.mockData.drones.forEach(d => {
                     if (d.status === 'in-flight' || d.status === 'assigned') {
-                        // Find assignment for dummy coords if possible, or just generate close random coords
                         const offsetLat = (Math.random() - 0.5) * 0.04;
                         const offsetLng = (Math.random() - 0.5) * 0.05;
 
@@ -310,6 +340,17 @@
                         }).addTo(miniMap).bindTooltip(`Drone ${d.id}`);
                     }
                 });
+                
+                // Fetch dynamic No-Fly Zones
+                fetch('http://localhost:8000/api/nfz?min_lat=17.3&min_lon=78.3&max_lat=17.5&max_lon=78.5')
+                .then(res => res.json())
+                .then(data => {
+                    if(data.features) {
+                        L.geoJSON(data, {
+                            style: { color: '#EF4444', weight: 1, fillColor: '#EF4444', fillOpacity: 0.2 }
+                        }).addTo(miniMap);
+                    }
+                }).catch(e => console.log('NFZ not available yet.'));
             }, 300);
 
         });

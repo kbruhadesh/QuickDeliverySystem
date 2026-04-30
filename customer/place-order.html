@@ -181,14 +181,13 @@
                 <div class="card" id="eta-card"
                     style="display:none; background: var(--accent-light); border-color: var(--accent-light); margin-bottom: 24px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-                        <strong id="eta-text"
+                        <strong
                             style="color:var(--accent-dark); font-family:var(--font-heading); font-size:1.1rem;">Estimated
-                            delivery: Calc...</strong>
+                            delivery: 22 minutes</strong>
                     </div>
-                    <div style="font-size: 0.9rem; color: var(--accent); display:flex; gap:16px; flex-wrap: wrap;">
-                        <span id="eta-distance">📍 Distance: -- km</span>
-                        <span id="eta-drone">🚁 Assigned drone: D-CUST</span>
-                        <span id="eta-battery">⚡ Battery Drop: --% (ML Predicted)</span>
+                    <div style="font-size: 0.9rem; color: var(--accent); display:flex; gap:16px;">
+                        <span>📍 Distance: 2.4 km</span>
+                        <span>🚁 Assigned drone: D-07</span>
                     </div>
                 </div>
 
@@ -205,8 +204,8 @@
     </div>
 
     <script src="js/mock-data.js"></script>
-    <script src="js/ui.js?v=3"></script>
-    <script src="js/order.js?v=3"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/order.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             if (!window.HDL_CUSTOMER.UI.requireLogin()) return;

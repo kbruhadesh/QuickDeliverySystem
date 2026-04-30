@@ -17,7 +17,7 @@ window.HDL.Router = {
         const user = window.HDL.Auth ? window.HDL.Auth.getUser() : null;
 
         if (!user && !isLoginPage) {
-            window.location.href = '../index.html';
+            window.location.href = 'index.html';
             return;
         }
 

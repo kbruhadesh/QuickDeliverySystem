@@ -208,12 +208,34 @@
             });
         });
 
-        function renderTable(filter) {
+        async function renderTable(filter) {
             const tbody = document.querySelector('#orders-table tbody');
             const tableContainer = document.getElementById('orders-table-container');
             const emptyState = document.getElementById('orders-empty-state');
 
-            let data = window.HDL.mockData.orders;
+            let data = [];
+            try {
+                const token = localStorage.getItem('hdl_customer_token');
+                const res = await fetch(`http://localhost:8000/orders/all?token=${token}`);
+                if (res.ok) {
+                    const dbOrders = await res.json();
+                    // map to internal schema
+                    data = dbOrders.map(o => ({
+                        id: 'HDL-' + o.id,
+                        pickup: [17.41, 78.44], // Dummy coords for basic backend schema
+                        delivery: [17.43, 78.40],
+                        weight: o.total_amount ? o.total_amount : 1.5,
+                        status: o.status.toLowerCase(),
+                        assignedDrone: null,
+                        createdAt: new Date().toISOString()
+                    }));
+                } else {
+                    data = window.HDL.mockData.orders;
+                }
+            } catch(e) {
+                data = window.HDL.mockData.orders;
+            }
+
             if (filter !== 'all') {
                 data = data.filter(o => o.status === filter);
             }
@@ -231,7 +253,7 @@
                 let html = '';
                 data.forEach(o => {
                     const statusClass = window.HDL.UI.setBadgeColor(o.status);
-                    const drone = o.assignedDrone || '-';
+                    const drone = o.assignedDrone || 'Waiting assignment';
                     const pkp = `${o.pickup[0].toFixed(2)}, ${o.pickup[1].toFixed(2)}`;
                     const del = `${o.delivery[0].toFixed(2)}, ${o.delivery[1].toFixed(2)}`;
                     const date = window.HDL.UI.formatDateTime(o.createdAt);
@@ -242,7 +264,7 @@
               <td>${pkp}</td>
               <td>${del}</td>
               <td>${o.weight} kg</td>
-              <td><span class="badge ${statusClass}">${o.status}</span></td>
+              <td><span class="badge ${statusClass}">${o.status.toUpperCase()}</span></td>
               <td>${drone}</td>
               <td>${date}</td>
               <td><button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem;">View</button></td>

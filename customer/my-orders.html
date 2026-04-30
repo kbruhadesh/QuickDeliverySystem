@@ -166,19 +166,40 @@
             }
 
             document.getElementById('auth-state').style.display = 'block';
-            let allOrders = [...window.HDL_CUSTOMER.MOCK_ORDERS];
+            const token = localStorage.getItem('hdl_customer_token');
+            let allOrders = [];
 
-            // Inject the local storage order if present to simulate fluid UX
-            const latestOrder = localStorage.getItem('hdl_latest_order');
-            if (latestOrder) {
-                const lo = JSON.parse(latestOrder);
-                // Add if not already tracking same id roughly
-                if (!allOrders.find(o => o.id === lo.id)) {
-                    allOrders.unshift({
-                        id: lo.id, status: 'IN_TRANSIT', pickup: "Custom Location", delivery: "Customer Location",
-                        weight: "1-2 kg", drone: lo.drone, created: new Date().toISOString()
-                    });
+            async function fetchOrders() {
+                try {
+                    const res = await fetch(`http://localhost:8000/orders/?token=${token}`);
+                    if(res.ok) {
+                        const dbOrders = await res.json();
+                        // Map dbOrders to the format our UI expects
+                        allOrders = dbOrders.map(o => ({
+                            id: "HDL-" + o.id,
+                            status: o.status.toUpperCase() === "PENDING" ? "CONFIRMED" : o.status.toUpperCase(),
+                            pickup: "Assigned Store",
+                            delivery: "Home Address",
+                            weight: "₹" + o.total_amount,
+                            created: new Date().toISOString()
+                        }));
+                    }
+                } catch(e) {
+                    console.error("API fetch failed, falling back to local simulation.", e);
                 }
+                
+                // Keep local tracking logic for simulation map UX
+                const latestOrder = localStorage.getItem('hdl_latest_order');
+                if (latestOrder) {
+                    const lo = JSON.parse(latestOrder);
+                    if (!allOrders.find(o => o.id === lo.id || o.id === ("HDL-"+lo.id))) {
+                        allOrders.unshift({
+                            id: lo.id, status: 'IN_TRANSIT', pickup: lo.store || "Custom Location", delivery: "Customer Location",
+                            weight: "1-2 kg", drone: lo.drone, created: new Date().toISOString(), type: lo.type, items: lo.items
+                        });
+                    }
+                }
+                renderOrders('all');
             }
 
             function renderOrders(filter) {
@@ -230,7 +251,8 @@
                 }
             }
 
-            renderOrders('all');
+            // Trigger fetch on load
+            fetchOrders();
 
             // Tabs
             document.querySelectorAll('.tab').forEach(tab => {

@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.user import User
-from app.models.order import Order
-from app.models.order_item import OrderItem
-from app.models.product import Product
+from app.db_models.user import User
+from app.db_models.order import Order
+from app.db_models.order_item import OrderItem
+from app.db_models.product import Product
 from app.schemas.order import OrderCreate
 from app.utils.jwt_handler import decode_access_token
 from app.services.assignment_service import assign_drone
@@ -89,9 +89,15 @@ def create_order(order_data: OrderCreate, token: str, db: Session = Depends(get_
 @router.get("/")
 def get_orders(token: str, db: Session = Depends(get_db)):
     user = get_current_user(token, db)
-
     orders = db.query(Order).filter(Order.user_id == user.id).all()
+    return orders
 
+# 👮 GET ALL ORDERS (ADMIN)
+@router.get("/all")
+def get_all_orders(token: str, db: Session = Depends(get_db)):
+    user = get_current_user(token, db)
+    # In a real app we'd check user.role == 'ADMIN'
+    orders = db.query(Order).all()
     return orders
 
 

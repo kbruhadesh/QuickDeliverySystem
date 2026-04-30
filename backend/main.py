@@ -4,6 +4,10 @@ from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
 
+from app.database import Base, engine
+from app.routers import auth, address, store, order
+from app.db_models import user, address as address_model, store as store_model, product as product_model, assignment
+
 app = FastAPI(title="Drone Delivery System")
 
 app.add_middleware(
@@ -18,6 +22,15 @@ from app.services.battery_predictor import BatteryPredictor
 from app.services.nfz_loader import OSMNFZLoader
 from app.tasks import run_optimization, simulation_step, celery_app
 from celery.result import AsyncResult
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
+# Include transactional routers
+app.include_router(auth.router)
+app.include_router(address.router)
+app.include_router(store.router)
+app.include_router(order.router)
 
 # Pydantic Schemas for Requests
 class WeatherData(BaseModel):

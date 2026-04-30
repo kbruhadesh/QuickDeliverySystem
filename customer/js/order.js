@@ -11,9 +11,6 @@ window.HDL_CUSTOMER.OrderFlow = {
     deliveryMarker: null,
     previewMarkers: [],
     previewRoute: null,
-    finalPath: null,
-    finalEta: 0,
-    finalBatteryDrop: 0,
 
     initPlaceOrder: function () {
         // Basic setup for maps. Default to Hyderabad coordinates
@@ -47,51 +44,52 @@ window.HDL_CUSTOMER.OrderFlow = {
         });
 
         // ETA btn
-        document.getElementById('calc-eta-btn').addEventListener('click', async (e) => {
-            const btn = e.target;
-            window.HDL_CUSTOMER.UI.showSpinner(btn);
-            
-            try {
-                const payload = {
-                    drones: [{ id: "D-CUST", max_payload: 5.0, battery_capacity: 100, latitude: 17.40, longitude: 78.45 }],
-                    orders: [{
-                        id: "ORD-CUST", package_weight: 1.0, 
-                        pickup_latitude: this.pickupLatlng.lat, pickup_longitude: this.pickupLatlng.lng,
-                        delivery_latitude: this.deliveryLatlng.lat, delivery_longitude: this.deliveryLatlng.lng
-                    }],
-                    weather: { wind_speed: 10, temperature: 25, humidity: 60, rain: 0 }
-                };
-
-                const res = await fetch("http://localhost:8000/api/optimize_routes", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                
-                this.pollTaskForETA(data.task_id, btn);
-            } catch (err) {
-                console.error(err);
-                window.HDL_CUSTOMER.UI.hideSpinner(btn);
-                window.HDL_CUSTOMER.UI.showToast("Failed to connect to backend", "error");
-            }
+        document.getElementById('calc-eta-btn').addEventListener('click', (e) => {
+            window.HDL_CUSTOMER.UI.showSpinner(e.target);
+            setTimeout(() => {
+                window.HDL_CUSTOMER.UI.hideSpinner(e.target);
+                document.getElementById('eta-card').style.display = 'block';
+                document.getElementById('confirm-order-btn').disabled = false;
+            }, 1200);
         });
 
         // Confirm Btn
-        document.getElementById('confirm-order-btn').addEventListener('click', (e) => {
+        document.getElementById('confirm-order-btn').addEventListener('click', async (e) => {
             window.HDL_CUSTOMER.UI.showSpinner(e.target);
-            setTimeout(() => {
-                // Mock save
-                localStorage.setItem('hdl_latest_order', JSON.stringify({
-                    id: 'HDL-' + Math.floor(1000 + Math.random() * 9000),
-                    pickup: this.pickupLatlng,
-                    delivery: this.deliveryLatlng,
-                    path: this.finalPath,
-                    eta: this.finalEta,
-                    battery_drop: this.finalBatteryDrop,
-                    drone: 'D-CUST'
-                }));
-                window.location.href = 'order-confirmed.html';
-            }, 1000);
+            
+            const token = localStorage.getItem('hdl_customer_token');
+            if (!token) {
+                alert("Please login first.");
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            try {
+                const res = await fetch(`http://localhost:8000/orders/?token=${token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items: [] }) // Package delivery has no products
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    localStorage.setItem('hdl_latest_order', JSON.stringify({
+                        id: data.order_id,
+                        pickup: this.pickupLatlng,
+                        delivery: this.deliveryLatlng,
+                        eta: 22,
+                        drone: 'D-07',
+                        type: 'PACKAGE'
+                    }));
+                    window.location.href = 'order-confirmed.html';
+                } else {
+                    window.HDL_CUSTOMER.UI.hideSpinner(e.target);
+                    alert("Order creation failed: " + (data.detail || ""));
+                }
+            } catch (err) {
+                window.HDL_CUSTOMER.UI.hideSpinner(e.target);
+                alert("API connection failed.");
+            }
         });
 
         // Welcome toast check
@@ -167,64 +165,6 @@ window.HDL_CUSTOMER.OrderFlow = {
         if (this.pickupLatlng && this.deliveryLatlng) {
             s3.classList.add('active');
             document.getElementById('calc-eta-btn').disabled = false;
-        }
-    },
-
-    pollTaskForETA: async function(taskId, btn) {
-        try {
-            const res = await fetch(`http://localhost:8000/api/tasks/${taskId}`);
-            const data = await res.json();
-            
-            if (data.status === "pending") {
-                setTimeout(() => this.pollTaskForETA(taskId, btn), 1000);
-            } else if (data.status === "success") {
-                const assignment = data.assignments[0];
-                const distanceKm = assignment.total_waypoints * 0.15; // rough distance approximation
-                this.finalPath = assignment.path;
-                this.predictBattery(distanceKm, btn);
-            } else {
-                window.HDL_CUSTOMER.UI.hideSpinner(btn);
-                window.HDL_CUSTOMER.UI.showToast("Optimization failed", "error");
-            }
-        } catch (e) {
-            console.error(e);
-            window.HDL_CUSTOMER.UI.hideSpinner(btn);
-        }
-    },
-
-    predictBattery: async function(distanceKm, btn) {
-        try {
-            const req = {
-                distance_km: distanceKm,
-                payload_weight_kg: 1.0,
-                weather: { wind_speed: 10, temperature: 25, humidity: 60, rain: 0 }
-            };
-            
-            const res = await fetch("http://localhost:8000/api/predict_battery", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(req)
-            });
-            const data = await res.json();
-            
-            window.HDL_CUSTOMER.UI.hideSpinner(btn);
-            
-            // Update UI
-            document.getElementById('eta-card').style.display = 'block';
-            document.getElementById('confirm-order-btn').disabled = false;
-            
-            const etaMinutes = Math.max(5, Math.floor(distanceKm * 2.5)); // 2.5 mins per km roughly
-            const batteryDrop = data.predicted_battery_drop_percent.toFixed(1);
-            document.getElementById('eta-text').textContent = `Estimated delivery: ${etaMinutes} minutes`;
-            document.getElementById('eta-distance').textContent = `📍 Distance: ${distanceKm.toFixed(2)} km`;
-            document.getElementById('eta-battery').textContent = `⚡ Battery Drop: ${batteryDrop}% (ML Predicted)`;
-            
-            this.finalEta = etaMinutes;
-            this.finalBatteryDrop = batteryDrop;
-            
-        } catch (e) {
-            console.error(e);
-            window.HDL_CUSTOMER.UI.hideSpinner(btn);
-            window.HDL_CUSTOMER.UI.showToast("ML Prediction failed", "error");
         }
     }
 };

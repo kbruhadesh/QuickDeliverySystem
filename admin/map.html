@@ -80,8 +80,6 @@
                         <label class="layer-toggle">
                             <input type="checkbox" id="layer-orders"> Pickup/Delivery
                         </label>
-                        <hr style="margin: 12px 0; border: 0; border-top: 1px solid var(--border);">
-                        <button class="btn btn-primary" style="width: 100%; padding: 8px;" onclick="runLiveOptimization()" id="btn-optimize">Optimize Routes (Live)</button>
                     </div>
 
                     <!-- Bottom Left Info Panel -->
@@ -141,9 +139,6 @@
             renderZones();
             renderRoutes();
             initialRenderDrones();
-            
-            // Automatically optimize routes on load
-            setTimeout(runLiveOptimization, 500);
         }
 
         function setupLayerToggles() {
@@ -169,124 +164,18 @@
             });
         }
 
-        async function renderZones() {
-            try {
-                // Fetch dynamic OSM NFZs from our FastAPI backend
-                const res = await fetch("http://localhost:8000/api/nfz?min_lat=17.33&min_lon=78.43&max_lat=17.43&max_lon=78.53");
-                if (!res.ok) throw new Error("API error");
-                const data = await res.json();
-                
-                // Clear mock polygons
-                zonePolygons.forEach(p => mainMap.removeLayer(p));
-                zonePolygons = [];
-
-                data.features.forEach(f => {
-                    const buffer_m = f.properties.buffer_m || 100;
-                    const [lng, lat] = f.geometry.coordinates;
-                    
-                    const circle = L.circle([lat, lng], {
-                        radius: buffer_m,
-                        color: '#EF4444',
-                        fillColor: '#EF4444',
-                        fillOpacity: 0.15,
-                        weight: 2
-                    });
-                    circle.bindTooltip(`${f.properties.name || 'Restricted Zone'} (${buffer_m}m)`);
-                    zonePolygons.push(circle);
-                    if (showZones) circle.addTo(mainMap);
+        function renderZones() {
+            window.HDL.mockData.zones.forEach(z => {
+                const poly = L.polygon(z.coordinates, {
+                    color: '#EF4444',
+                    fillColor: '#EF4444',
+                    fillOpacity: 0.15,
+                    weight: 2
                 });
-                console.log(`Loaded ${data.features.length} live NFZs from OpenStreetMap!`);
-            } catch (e) {
-                console.error("Failed to load live NFZs, falling back to mock...", e);
-                window.HDL.mockData.zones.forEach(z => {
-                    const poly = L.polygon(z.coordinates, {
-                        color: '#EF4444',
-                        fillColor: '#EF4444',
-                        fillOpacity: 0.15,
-                        weight: 2
-                    });
-                    poly.bindTooltip(z.name);
-                    zonePolygons.push(poly);
-                    if (showZones) poly.addTo(mainMap);
-                });
-            }
-        }
-
-        async function runLiveOptimization() {
-            const btn = document.getElementById('btn-optimize');
-            btn.innerHTML = "Optimizing via RRT*...";
-            btn.disabled = true;
-
-            try {
-                // Remove inactive mock orders that would crash optimizer
-                const activeOrders = window.HDL.mockData.orders.filter(o => o.status !== 'completed' && o.status !== 'failed');
-
-                // Build payload
-                const payload = {
-                    drones: window.HDL.mockData.drones.map(d => ({
-                        id: d.id, max_payload: d.maxPayload, battery_capacity: d.battery,
-                        latitude: d._lat || 17.385, longitude: d._lng || 78.486
-                    })),
-                    orders: activeOrders.map(o => ({
-                        id: o.id, package_weight: o.weight, 
-                        pickup_latitude: o.pickup[0], pickup_longitude: o.pickup[1],
-                        delivery_latitude: o.delivery[0], delivery_longitude: o.delivery[1]
-                    })),
-                    weather: { wind_speed: 10, temperature: 25, humidity: 60, rain: 0 }
-                };
-
-                // Trigger task
-                const res = await fetch("http://localhost:8000/api/optimize_routes", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                
-                // Poll for result
-                pollTaskStatus(data.task_id);
-            } catch (e) {
-                console.error(e);
-                window.HDL.UI.showToast("Failed to connect to backend", "error");
-                btn.innerHTML = "Optimize Routes (Live)";
-                btn.disabled = false;
-            }
-        }
-
-        async function pollTaskStatus(taskId) {
-            const btn = document.getElementById('btn-optimize');
-            try {
-                const res = await fetch(`http://localhost:8000/api/tasks/${taskId}`);
-                const data = await res.json();
-                
-                if (data.status === "pending") {
-                    setTimeout(() => pollTaskStatus(taskId), 1000); // Check again in 1s
-                } else if (data.status === "success") {
-                    // Update mock data assignments
-                    window.HDL.mockData.assignments = data.assignments.map(a => ({
-                        droneId: a.drone_id,
-                        orderId: a.orders[0] || "Multiple",
-                        route: a.path,
-                        distance: a.total_waypoints, eta: 'Live', batteryPred: 0
-                    }));
-                    
-                    // Re-render
-                    routeLines.forEach(l => mainMap.removeLayer(l));
-                    routeLines = [];
-                    renderRoutes();
-                    
-                    window.HDL.UI.showToast(`Path calculated by Backend RRT*!`, "success");
-                    btn.innerHTML = "Optimize Routes (Live)";
-                    btn.disabled = false;
-                } else {
-                    window.HDL.UI.showToast("Optimization failed!", "error");
-                    btn.innerHTML = "Optimize Routes (Live)";
-                    btn.disabled = false;
-                }
-            } catch (e) {
-                console.error(e);
-                btn.innerHTML = "Optimize Routes (Live)";
-                btn.disabled = false;
-            }
+                poly.bindTooltip(z.name);
+                zonePolygons.push(poly);
+                if (showZones) poly.addTo(mainMap);
+            });
         }
 
         function renderRoutes() {
@@ -321,8 +210,8 @@
         function initialRenderDrones() {
             window.HDL.mockData.drones.forEach((d, i) => {
                 // Base random starting point across map
-                d._lat = 17.385 + (i * 0.005);
-                d._lng = 78.486 + (Math.random() * 0.04);
+                d._lat = 40.710 + (i * 0.005);
+                d._lng = -74.020 + (Math.random() * 0.04);
 
                 createOrUpdateDroneMarker(d);
             });
