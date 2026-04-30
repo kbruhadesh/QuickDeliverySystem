@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from app.models.drone import Drone
-from app.models.assignment import Assignment
-from app.models.order import Order
+from app.db_models.drone import Drone
+from app.db_models.assignment import Assignment
+from app.db_models.order import Order
 
 
 def assign_drone(db: Session, order: Order):

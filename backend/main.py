@@ -1,5 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import os
+import redis.asyncio as redis_async
+import json
 from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
@@ -131,6 +135,26 @@ def get_nfz(min_lat: float, min_lon: float, max_lat: float, max_lon: float):
     loader = OSMNFZLoader()
     features = loader.get_nfz_features(min_lat, min_lon, max_lat, max_lon)
     return {"type": "FeatureCollection", "features": features}
+
+@app.websocket("/api/drones/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+    r = redis_async.from_url(REDIS_URL)
+    pubsub = r.pubsub()
+    await pubsub.subscribe("drone_telemetry")
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            if message:
+                data = message["data"].decode("utf-8")
+                await websocket.send_text(data)
+            await asyncio.sleep(0.5) # Poll rate
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await pubsub.unsubscribe("drone_telemetry")
+        await r.aclose()
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
