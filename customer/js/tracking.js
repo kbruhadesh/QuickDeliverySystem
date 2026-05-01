@@ -37,8 +37,20 @@ window.HDL_CUSTOMER.Tracking = {
 
         this.routeCoords = order.route;
 
-        this.map = L.map('track-map', { zoomControl: false }).setView([this.pickup.lat, this.pickup.lng], 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(this.map);
+        this.map = L.map('track-map', { zoomControl: false }).setView([this.pickup.lat, this.pickup.lng], 16);
+        
+        // ESRI Satellite
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '&copy; Esri'
+        }).addTo(this.map);
+
+        // OSM Labels Overlay
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap',
+            opacity: 0.4
+        }).addTo(this.map);
 
         L.circleMarker(this.pickup, { radius: 6, fillColor: '#10B981', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(this.map);
         L.circleMarker(this.delivery, { radius: 6, fillColor: '#EF4444', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(this.map);
@@ -46,9 +58,9 @@ window.HDL_CUSTOMER.Tracking = {
         this.routeLine = L.polyline(this.routeCoords, { color: 'var(--accent)', weight: 4, opacity: 0.5 }).addTo(this.map);
         this.map.fitBounds(this.routeLine.getBounds(), { padding: [30, 30] });
 
-        // Custom drone SVG icon
-        const droneIconUrl = 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="#0055FF"><path d="M12 2L2 7l10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5zm0 10l-10 5 10 5 10-5-10-5z"/></svg>`);
-        const droneIcon = L.icon({ iconUrl: droneIconUrl, iconSize: [24, 24], iconAnchor: [12, 12] });
+        // Custom drone SVG icon matching the simulation (green marker)
+        const droneIconUrl = 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png';
+        const droneIcon = L.icon({ iconUrl: droneIconUrl, iconSize: [30, 46], iconAnchor: [15, 46] });
 
         this.droneMarker = L.marker(this.routeCoords[0], { icon: droneIcon }).addTo(this.map);
 
@@ -66,18 +78,65 @@ window.HDL_CUSTOMER.Tracking = {
 
 
 
+    haversineDistance: function(lat1, lon1, lat2, lon2) {
+        const R = 6371000; // Earth radius in meters
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    },
+
     startSimulation: function () {
+        const DRONE_SPEED_MS = 15.0; // 15 m/s
+        const SIMULATION_INTERVAL_MS = 100; // 100ms
+        
+        let currentSegmentIndex = 0;
+        let currentSegmentProgress = 0; // 0 to 1
+
         this.moveInterval = setInterval(() => {
-            this.currentIndex++;
-            if (this.currentIndex >= this.routeCoords.length) {
+            if (currentSegmentIndex >= this.routeCoords.length - 1) {
                 clearInterval(this.moveInterval);
+                this.droneMarker.setLatLng(this.routeCoords[this.routeCoords.length - 1]);
                 return;
             }
-            this.droneMarker.setLatLng(this.routeCoords[this.currentIndex]);
 
-            // Attempt Socket.io connection fallback via console log to simulate failure structure
-            console.debug('Socket.io ping attempt...');
-        }, 2000);
+            const start = this.routeCoords[currentSegmentIndex];
+            const end = this.routeCoords[currentSegmentIndex + 1];
+            
+            // Handle coordinate arrays [lat, lon, alt] or [lat, lon]
+            const startLat = Array.isArray(start) ? start[0] : start.lat;
+            const startLon = Array.isArray(start) ? start[1] : start.lng;
+            const endLat = Array.isArray(end) ? end[0] : end.lat;
+            const endLon = Array.isArray(end) ? end[1] : end.lng;
+            
+            let segmentDistance = this.haversineDistance(startLat, startLon, endLat, endLon);
+            if (segmentDistance < 0.1) segmentDistance = 0.1; // Prevent division by zero
+            
+            const distancePerInterval = DRONE_SPEED_MS * (SIMULATION_INTERVAL_MS / 1000);
+            const progressIncrement = distancePerInterval / segmentDistance;
+            
+            currentSegmentProgress += progressIncrement;
+
+            if (currentSegmentProgress >= 1.0) {
+                currentSegmentProgress = 0;
+                currentSegmentIndex++;
+                if (currentSegmentIndex < this.routeCoords.length) {
+                    const node = this.routeCoords[currentSegmentIndex];
+                    const lat = Array.isArray(node) ? node[0] : node.lat;
+                    const lon = Array.isArray(node) ? node[1] : node.lng;
+                    this.droneMarker.setLatLng([lat, lon]);
+                    this.currentIndex = currentSegmentIndex;
+                }
+            } else {
+                const lat = startLat + (endLat - startLat) * currentSegmentProgress;
+                const lon = startLon + (endLon - startLon) * currentSegmentProgress;
+                this.droneMarker.setLatLng([lat, lon]);
+                this.map.panTo([lat, lon], { animate: true, duration: 0.1 });
+            }
+        }, SIMULATION_INTERVAL_MS);
 
         this.dataInterval = setInterval(() => {
             const batt = Math.max(0, 74 - Math.floor(this.currentIndex / 4));

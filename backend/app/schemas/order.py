@@ -8,7 +8,7 @@ class OrderItemCreate(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    items: List[OrderItemCreate]
+    items: List[OrderItemCreate] = []
     pickup_latitude: float = None
     pickup_longitude: float = None
     delivery_latitude: float = None

@@ -1,0 +1,62 @@
+# =========================
+# Node / Frontend
+# =========================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/build/
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Virtual environments
+backend/venv/
+backend/env/
+backend/.venv/
+
+# =========================
+# Environment
+# =========================
+.env
+.env.*
+backend/config/local_settings.py
+
+# =========================
+# Logs & temp
+# =========================
+*.log
+*.tmp
+*.swp
+backend/cache/
+backend/data/last_plan.json
+
+# =========================
+# MacOS
+# =========================
+.DS_Store
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+*.iml
+
+# =========================
+# Testing / coverage
+# =========================
+.coverage
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Build artifacts
+# =========================
+*.egg-info/
+dist/
+build/

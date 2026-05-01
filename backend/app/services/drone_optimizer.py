@@ -3,26 +3,19 @@ from ortools.constraint_solver import pywrapcp
 import numpy as np
 from typing import List, Dict, Tuple
 from app.models import Drone, Order
-from app.services.path_planner import RRTStarPlanner
 import math
+from .route_integration import generate_path, compute_path_distance
 
 class DroneOptimizer:
     def __init__(self, drones: List[Drone], orders: List[Order], weather_data: dict):
         self.drones = drones
         self.orders = orders
         self.weather = weather_data
-        self.planner = RRTStarPlanner()  # Your RRT* planner
         
     def haversine_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-        """Calculate distance in km using Haversine formula"""
-        R = 6371  # Earth radius in km
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        a = (math.sin(dlat/2)**2 + 
-             math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * 
-             math.sin(dlon/2)**2)
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        return R * c
+        """Calculate distance in km using advanced path generation"""
+        route = generate_path(lat1, lon1, lat2, lon2)
+        return compute_path_distance(route)
     
     def build_distance_matrix(self) -> np.ndarray:
         """
@@ -217,19 +210,13 @@ class DroneOptimizer:
                 delivery = (order.delivery_latitude, order.delivery_longitude)
                 
                 # RRT* from current position to pickup
-                path_to_pickup = self.planner.plan_path(
-                    start=current_pos,
-                    goal=pickup
-                )
+                path_to_pickup = generate_path(current_pos[0], current_pos[1], pickup[0], pickup[1])
                 
                 if path_to_pickup:
                     full_path.extend(path_to_pickup[1:])  # Skip duplicate start
                     
                     # RRT* from pickup to delivery
-                    path_to_delivery = self.planner.plan_path(
-                        start=pickup,
-                        goal=delivery
-                    )
+                    path_to_delivery = generate_path(pickup[0], pickup[1], delivery[0], delivery[1])
                     
                     if path_to_delivery:
                         full_path.extend(path_to_delivery[1:])

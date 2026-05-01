@@ -40,9 +40,24 @@ def seed_stores():
     ]
 
     for data in stores_data:
-        # Avoid duplicates based on name
-        exists = db.execute(text("SELECT id FROM stores WHERE name = :name"), {"name": data["name"]}).fetchone()
-        if not exists:
+        # Check if store exists by name
+        res = db.execute(text("SELECT id FROM stores WHERE name = :name"), {"name": data["name"]}).fetchone()
+        if res:
+            store_id = res[0]
+            print(f"Updating store: {data['name']} (ID: {store_id})")
+            db.execute(text("""
+                UPDATE stores 
+                SET pincode = :pincode, address = :address, latitude = :lat, longitude = :lng
+                WHERE id = :id
+            """), {
+                "pincode": data["pincode"],
+                "address": data["address"],
+                "lat": data["lat"],
+                "lng": data["lng"],
+                "id": store_id
+            })
+        else:
+            print(f"Inserting new store: {data['name']}")
             db.execute(text("""
                 INSERT INTO stores (name, pincode, address, latitude, longitude)
                 VALUES (:name, :pincode, :address, :lat, :lng)

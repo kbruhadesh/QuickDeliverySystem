@@ -8,9 +8,12 @@ from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
 
-from app.database import Base, engine
+from app.database import Base, engine, get_db
 from app.routers import auth, address, store, order
 from app.db_models import user, address as address_model, store as store_model, product as product_model, assignment
+from app.db_models.drone import Drone
+from fastapi import Depends
+from seed import seed_initial_data
 
 app = FastAPI(title="Drone Delivery System")
 
@@ -27,8 +30,9 @@ from app.services.nfz_loader import OSMNFZLoader
 from app.tasks import run_optimization, simulation_step, celery_app
 from celery.result import AsyncResult
 
-# Create database tables
+# Create database tables and seed data
 Base.metadata.create_all(bind=engine)
+seed_initial_data()
 
 # Include transactional routers
 app.include_router(auth.router)
@@ -135,6 +139,14 @@ def get_nfz(min_lat: float, min_lon: float, max_lat: float, max_lon: float):
     loader = OSMNFZLoader()
     features = loader.get_nfz_features(min_lat, min_lon, max_lat, max_lon)
     return {"type": "FeatureCollection", "features": features}
+
+@app.get("/drones/")
+def get_all_drones(db=Depends(get_db)):
+    """
+    Get all drones for the admin dashboard.
+    """
+    drones = db.query(Drone).all()
+    return drones
 
 @app.websocket("/api/drones/ws")
 async def websocket_endpoint(websocket: WebSocket):

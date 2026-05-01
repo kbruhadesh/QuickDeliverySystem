@@ -10,7 +10,7 @@ from app.db_models.product import Product
 from app.schemas.order import OrderCreate
 from app.utils.jwt_handler import decode_access_token
 from app.services.assignment_service import assign_drone
-from app.services.path_planner import RRTStarPlanner
+from app.services.route_integration import generate_path, compute_path_distance
 from app.services.battery_predictor import BatteryPredictor
 from pydantic import BaseModel
 
@@ -109,30 +109,14 @@ def create_order(order_data: OrderCreate, token: str, db: Session = Depends(get_
 
 @router.post("/calculate_eta")
 def calculate_eta(req: RouteCalcRequest):
-    # 1. Plan the route using RRT*
-    planner = RRTStarPlanner(step_size=200, max_iter=8000, radius=400)
+    # 1. Plan the route using route integration
     start = (req.pickup_latitude, req.pickup_longitude)
     goal = (req.delivery_latitude, req.delivery_longitude)
     
-    path = planner.plan_path(start, goal)
+    route = generate_path(start[0], start[1], goal[0], goal[1])
+    distance_km = compute_path_distance(route)
+    path = route
     
-    # Calculate distance based on path
-    import math
-    def haversine(p1, p2):
-        lat1, lon1 = math.radians(p1[0]), math.radians(p1[1])
-        lat2, lon2 = math.radians(p2[0]), math.radians(p2[1])
-        dlat, dlon = lat2 - lat1, lon2 - lon1
-        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-        c = 2 * math.asin(math.sqrt(a))
-        return 6371 * c
-        
-    distance_km = 0
-    if len(path) > 1:
-        for i in range(len(path)-1):
-            distance_km += haversine(path[i], path[i+1])
-    else:
-        distance_km = haversine(start, goal)
-        
     # Assume 40 km/h drone speed
     eta_min = int((distance_km / 40) * 60)
     

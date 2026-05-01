@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -13,5 +13,7 @@ class Address(Base):
     city = Column(String)
     state = Column(String)
     pincode = Column(String)
+    latitude = Column(Float, nullable=True)   # Geocoded from Nominatim at save time
+    longitude = Column(Float, nullable=True)  # Geocoded from Nominatim at save time
 
     user = relationship("User")

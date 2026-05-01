@@ -163,44 +163,48 @@
             renderDrones();
         });
 
-        function renderDrones() {
+        async function renderDrones() {
             const tbody = document.querySelector('#drones-table tbody');
             let html = '';
 
-            const role = window.HDL.Auth.getUser()?.role;
-            const isAdmin = role === 'admin' || role === 'developer'; // Adjusting based on logic if dev has admin perms here or just admin. Dev can see .dev-only. We use admin-only class. Let's rely on router.js display block/none, so we output the column but it gets hidden by CSS if applied correctly. Actually, Router.js checks '.admin-only'. We will add class to the <td>.
+            try {
+                const res = await fetch('http://localhost:8000/drones/');
+                if (res.ok) {
+                    const drones = await res.json();
+                    drones.forEach((d, index) => {
+                        const sClass = window.HDL.UI.setBadgeColor(d.status);
+                        const date = 'Just now'; // Assume real-time
+                        
+                        let battClass = '';
+                        if (d.battery < 20) battClass = 'danger';
+                        else if (d.battery < 50) battClass = 'warning';
 
-            window.HDL.mockData.drones.forEach((d, index) => {
-                const sClass = window.HDL.UI.setBadgeColor(d.status);
-                const date = window.HDL.UI.formatDateTime(d.lastUpdated);
-
-                let battClass = '';
-                if (d.battery < 20) battClass = 'danger';
-                else if (d.battery < 50) battClass = 'warning';
-
-                html += `
-          <tr>
-            <td><strong>${d.id}</strong></td>
-            <td>${d.model}</td>
-            <td>${d.maxPayload.toFixed(1)} kg</td>
-            <td>
-              <span>${Math.floor(d.battery)}%</span>
-              <div class="battery-bar-container">
-                <div class="battery-bar ${battClass}" style="width: ${d.battery}%"></div>
-              </div>
-            </td>
-            <td><span class="badge ${sClass}">${d.status}</span></td>
-            <td>${date}</td>
-            <td class="admin-only">
-              <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem; margin-right:4px;" onclick="openDroneModal(${index})">Edit</button>
-              <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteDrone(${index})">Delete</button>
-            </td>
-          </tr>
-        `;
-            });
+                        html += `
+                        <tr>
+                            <td><strong>D-${d.id}</strong></td>
+                            <td>HDL Quad</td>
+                            <td>${d.max_payload.toFixed(1)} kg</td>
+                            <td>
+                            <span>${Math.floor(d.battery)}%</span>
+                            <div class="battery-bar-container">
+                                <div class="battery-bar ${battClass}" style="width: ${d.battery}%"></div>
+                            </div>
+                            </td>
+                            <td><span class="badge ${sClass}">${d.status}</span></td>
+                            <td>${date}</td>
+                            <td class="admin-only">
+                            <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem; margin-right:4px;" onclick="openDroneModal(${index})">Edit</button>
+                            <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteDrone(${index})">Delete</button>
+                            </td>
+                        </tr>
+                        `;
+                    });
+                }
+            } catch(e) {
+                html = '<tr><td colspan="7">Failed to load drones.</td></tr>';
+            }
             tbody.innerHTML = html;
 
-            // Re-apply role based UI since we re-rendered DOM elements
             if (window.HDL.Router) window.HDL.Router.applyRoleBasedUI();
         }
 

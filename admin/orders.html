@@ -334,23 +334,29 @@
             }
 
             if (valid) {
-                const id = `ORD-${1000 + window.HDL.mockData.orders.length + 1}`;
-                const newOrder = {
-                    id: id,
-                    pickup: p.split(',').map(n => parseFloat(n)),
-                    delivery: d.split(',').map(n => parseFloat(n)),
-                    weight: w,
-                    status: 'pending',
-                    assignedDrone: null,
-                    createdAt: new Date().toISOString()
-                };
-
-                window.HDL.mockData.orders.unshift(newOrder);
-                window.HDL.UI.closeModal('new-order-modal');
-                window.HDL.UI.showToast(`Order ${id} created successfully`, 'success');
-
-                const activeFilter = document.querySelector('#order-filters .pill-btn.active').dataset.filter;
-                renderTable(activeFilter);
+                const token = localStorage.getItem('hdl_customer_token');
+                fetch(`http://localhost:8000/orders/?token=${token}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        items: [],
+                        pickup_latitude: p.split(',')[0].trim(),
+                        pickup_longitude: p.split(',')[1].trim(),
+                        delivery_latitude: d.split(',')[0].trim(),
+                        delivery_longitude: d.split(',')[1].trim(),
+                        weight: w
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    window.HDL.UI.closeModal('new-order-modal');
+                    window.HDL.UI.showToast(`Order created successfully`, 'success');
+                    const activeFilter = document.querySelector('#order-filters .pill-btn.active').dataset.filter;
+                    renderTable(activeFilter);
+                })
+                .catch(err => {
+                    window.HDL.UI.showToast(`Failed to create order`, 'error');
+                });
             }
         }
     </script>
