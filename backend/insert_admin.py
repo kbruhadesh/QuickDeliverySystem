@@ -2,8 +2,9 @@ import psycopg2
 from passlib.context import CryptContext
 import uuid
 
-# Database connection
-conn = psycopg2.connect("postgresql://postgres:password@127.0.0.1:5432/drone_delivery")
+import os
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:password@127.0.0.1:5432/drone_delivery")
+conn = psycopg2.connect(DATABASE_URL)
 cur = conn.cursor()
 
 # Password hashing

@@ -16,6 +16,8 @@ def final_seed():
             {"name": "Hi-Tech City Express", "pincode": "500081", "pickup_latitude": 17.4474, "pickup_longitude": 78.3762},
             {"name": "Hanamkonda Central", "pincode": "506001", "pickup_latitude": 18.0044, "pickup_longitude": 79.5581},
             {"name": "Warangal Fort Hub", "pincode": "506008", "pickup_latitude": 17.9689, "pickup_longitude": 79.5941},
+            {"name": "Vallikavu Express (Amritapuri)", "pincode": "690546", "pickup_latitude": 9.0939, "pickup_longitude": 76.4918},
+            {"name": "Kollam Beach Node", "pincode": "691001", "pickup_latitude": 8.8853, "pickup_longitude": 76.5865}
         ]
 
         # NOTE: Store model fields are actually 'latitude' and 'longitude' in app/db_models/store.py 
