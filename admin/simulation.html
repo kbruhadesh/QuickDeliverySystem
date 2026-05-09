@@ -245,6 +245,7 @@
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
+        const API = 'http://localhost:8000/api';
         let simStatus = 'stopped';
         let logInterval = null;
 
@@ -261,7 +262,7 @@
             });
 
             populateDrones();
-            renderLogs();
+            addLog('ℹ️ Simulation Control Panel initialized.', 'success');
         });
 
         function setSimStatus(status) {
@@ -276,130 +277,124 @@
 
             if (status === 'running') {
                 window.HDL.UI.showToast('Simulation started', 'success');
-                addLog('ℹ️ Simulation Engine started.', 'info');
-                if (!logInterval) {
-                    logInterval = setInterval(simulateLiveEvents, 3000);
-                }
+                addLog('▶️ Simulation Engine started.', 'success');
             } else if (status === 'paused') {
                 window.HDL.UI.showToast('Simulation paused', 'warning');
                 addLog('⏸️ Simulation paused.', 'warn');
-                clearInterval(logInterval);
-                logInterval = null;
             } else {
                 window.HDL.UI.showToast('Simulation stopped', 'error');
                 addLog('⏹️ Simulation stopped.', 'error');
-                clearInterval(logInterval);
-                logInterval = null;
             }
         }
 
-        function resetSim() {
-            setSimStatus('stopped');
-            addLog('🔄 System Reset requested...', 'info');
-            setTimeout(() => {
-                document.getElementById('event-log').innerHTML = '';
-                window.HDL.mockData.eventLog = [];
-                addLog('ℹ️ System Reset complete.', 'success');
-            }, 500);
-        }
-
-        function populateDrones() {
-            const sel = document.getElementById('fail-drone-sel');
-            let html = '';
-            window.HDL.mockData.drones.forEach(d => {
-                if (d.status === 'in-flight' || d.status === 'assigned') {
-                    html += `<option value="${d.id}">${d.id} (${d.model})</option>`;
+        async function resetSim() {
+            const token = localStorage.getItem('hdl_admin_token');
+            window.HDL.UI.showConfirm("Are you sure? This will delete ALL orders and assignments.", async () => {
+                try {
+                    const res = await fetch(`${API}/admin/reset-system?token=${token}`, { method: 'POST' });
+                    if (res.ok) {
+                        document.getElementById('event-log').innerHTML = '';
+                        addLog('🔄 System Reset complete. All databases cleared.', 'success');
+                        window.HDL.UI.showToast('System reset successful', 'success');
+                        populateDrones();
+                    }
+                } catch(e) {
+                    window.HDL.UI.showToast('Reset failed', 'error');
                 }
             });
-            if (!html) html = '<option value="">No active drones</option>';
-            sel.innerHTML = html;
         }
 
-        function generateOrders() {
+        async function populateDrones() {
+            const sel = document.getElementById('fail-drone-sel');
+            const token = localStorage.getItem('hdl_admin_token');
+            try {
+                const res = await fetch(`${API}/drones/`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) {
+                    const drones = await res.json();
+                    let html = drones
+                        .filter(d => d.status !== 'maintenance' && d.status !== 'failed')
+                        .map(d => `<option value="${d.id}">${d.drone_id} (${d.status})</option>`)
+                        .join('');
+                    
+                    sel.innerHTML = html || '<option value="">No active drones</option>';
+                }
+            } catch(e) {
+                sel.innerHTML = '<option value="">Error loading drones</option>';
+            }
+        }
+
+        async function generateOrders() {
             const num = parseInt(document.getElementById('gen-order-num').value);
+            const token = localStorage.getItem('hdl_admin_token');
             if (isNaN(num) || num < 1) return;
 
-            window.HDL.UI.showToast(`Generated ${num} random orders`, 'success');
-            addLog(`📦 Generated ${num} new orders into the queue.`, 'info');
+            addLog(`📦 Attempting to generate ${num} test orders...`, 'info');
+            
+            // Simulation: create random orders in loop
+            let successCount = 0;
+            for(let i=0; i<num; i++) {
+                const res = await fetch(`${API}/orders/`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pickup_latitude: 17.3850 + (Math.random() - 0.5) * 0.1,
+                        pickup_longitude: 78.4867 + (Math.random() - 0.5) * 0.1,
+                        delivery_latitude: 17.3850 + (Math.random() - 0.5) * 0.1,
+                        delivery_longitude: 78.4867 + (Math.random() - 0.5) * 0.1,
+                        package_weight: 1 + Math.random() * 2,
+                        priority: 2
+                    })
+                });
+                if (res.ok) successCount++;
+            }
+            
+            addLog(`✅ Successfully created ${successCount} orders.`, 'success');
+            window.HDL.UI.showToast(`Batch generation complete`, 'success');
         }
 
-        function injectFailure() {
+        async function injectFailure() {
             const sel = document.getElementById('fail-drone-sel');
             const droneId = sel.value;
+            const token = localStorage.getItem('hdl_admin_token');
             if (!droneId) return;
 
-            window.HDL.UI.showConfirm(`Are you sure you want to forcibly fail Drone ${droneId}?`, () => {
-                // Find drone and fail
-                const drone = window.HDL.mockData.drones.find(d => d.id === droneId);
-                if (drone) {
-                    drone.status = 'failed';
-                    drone.battery = 0; // simulating catastrophic fail
-                    window.HDL.UI.showToast(`Drone ${droneId} failed!`, 'error');
-                    addLog(`⚠️ CRITICAL: Drone ${droneId} engine failure! Emergency landing.`, 'error');
-
-                    setTimeout(() => {
-                        addLog(`🔄 Reassigning Order from Drone ${droneId} to backup...`, 'warn');
-                    }, 1500);
-
-                    populateDrones();
+            window.HDL.UI.showConfirm(`Force failure on Drone ${droneId}?`, async () => {
+                try {
+                    // Update drone status to maintenance or similar
+                    const res = await fetch(`${API}/admin/drones/${droneId}?token=${token}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            drone_id: "FAILED-" + droneId.substring(0,4),
+                            model: "Emergency-Mode",
+                            max_payload: 1.0,
+                            max_range: 1.0,
+                            battery_capacity: 100
+                        })
+                    });
+                    
+                    if (res.ok) {
+                        addLog(`❌ CRITICAL: Drone ${droneId} engine failure reported!`, 'error');
+                        window.HDL.UI.showToast('Failure injected', 'error');
+                        populateDrones();
+                    }
+                } catch(e) {
+                    window.HDL.UI.showToast('Injection failed', 'error');
                 }
             });
         }
 
         function addLog(message, type = 'info') {
+            const container = document.getElementById('event-log');
             const now = new Date();
             const timeStr = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
-            const fullMsg = `${timeStr} ${message}`;
-
-            window.HDL.mockData.eventLog.push(fullMsg);
-            renderNewLogEntry(timeStr, message, type);
-        }
-
-        function renderLogs() {
-            const container = document.getElementById('event-log');
-            container.innerHTML = '';
-            window.HDL.mockData.eventLog.forEach(log => {
-                // basic parse
-                const parts = log.split('] ');
-                const timeStr = parts[0] + ']';
-                const msg = parts[1] || '';
-
-                let type = 'info';
-                if (msg.includes('✅')) type = 'success';
-                if (msg.includes('⚠️')) type = 'warn';
-                if (msg.includes('❌') || msg.includes('CRITICAL')) type = 'error';
-
-                renderNewLogEntry(timeStr, msg, type);
-            });
-        }
-
-        function renderNewLogEntry(timeStr, msg, type) {
-            const container = document.getElementById('event-log');
+            
             const div = document.createElement('div');
             div.className = `log-entry ${type}`;
-            div.innerHTML = `<span class="time">${timeStr}</span><span class="msg">${msg}</span>`;
-
-            // prepend or append layout preference? The prompt says "event log feed... auto scrolls to bottom. new events prepended... wait, if it auto scrolls to bottom, usually we append." Let's append and scroll.
+            div.innerHTML = `<span class="time">${timeStr}</span><span class="msg">${message}</span>`;
+            
             container.appendChild(div);
             container.scrollTop = container.scrollHeight;
-        }
-
-        // Faking live events
-        const randomEvents = [
-            '✅ Drone D4 completed its delivery and is returning to base.',
-            'ℹ️ Weather API reported wind increase in Sector 7.',
-            '✅ Optimizer re-calculated routes. Saved 0.4kg CO2.',
-            '⚠️ Drone D2 telemetry latency spike (1200ms).',
-            '📦 Order ORD-1099 assigned to Drone D8.'
-        ];
-        function simulateLiveEvents() {
-            const evt = randomEvents[Math.floor(Math.random() * randomEvents.length)];
-
-            let type = 'info';
-            if (evt.includes('✅')) type = 'success';
-            if (evt.includes('⚠️')) type = 'warn';
-
-            addLog(evt, type);
         }
     </script>
 </body>

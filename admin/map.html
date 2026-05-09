@@ -75,7 +75,7 @@
                             <input type="checkbox" id="layer-routes" checked> Routes
                         </label>
                         <label class="layer-toggle">
-                            <input type="checkbox" id="layer-zones" checked> No-Fly Zones
+                            <input type="checkbox" id="layer-zones"> No-Fly Zones
                         </label>
                         <label class="layer-toggle">
                             <input type="checkbox" id="layer-orders"> Pickup/Delivery
@@ -108,192 +108,186 @@
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
+        const API = 'http://localhost:8000/api';
         let mainMap;
         let droneMarkers = {};
         let routeLines = [];
         let zonePolygons = [];
         let orderMarkers = [];
 
-        // Manage Layer visibility
-        let showDrones = true;
-        let showRoutes = true;
-        let showZones = true;
-        let showOrders = false;
-
         document.addEventListener('DOMContentLoaded', () => {
             if (window.HDL.Router) window.HDL.Router.init();
-
             initMainMap();
             setupLayerToggles();
-
-            // Simulate real-time movement
-            setInterval(updateDronesLocation, 2000);
+            connectTelemetry();
         });
 
-        function initMainMap() {
+        async function initMainMap() {
             mainMap = L.map('main-map', { zoomControl: false }).setView([17.3850, 78.4867], 13);
             L.control.zoom({ position: 'bottomright' }).addTo(mainMap);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(mainMap);
 
-            renderZones();
-            renderRoutes();
-            initialRenderDrones();
+            // Handle URL tracking
+            const urlParams = new URLSearchParams(window.location.search);
+            const trackOrderId = urlParams.get('order');
+
+            if (trackOrderId) {
+                try {
+                    const token = localStorage.getItem('hdl_admin_token');
+                    const res = await fetch(`${API}/orders/${trackOrderId}?token=${token}`);
+                    if (res.ok) {
+                        const o = await res.json();
+                        mainMap.setView([o.delivery_latitude, o.delivery_longitude], 15);
+                        
+                        L.marker([o.pickup_latitude, o.pickup_longitude], {
+                            icon: L.divIcon({ className: 'custom-marker', html: '🟢', iconSize: [20,20] })
+                        }).addTo(mainMap).bindTooltip("Pickup: HDL-" + trackOrderId.substring(0,8));
+
+                        L.marker([o.delivery_latitude, o.delivery_longitude], {
+                            icon: L.divIcon({ className: 'custom-marker', html: '📍', iconSize: [20,20] })
+                        }).addTo(mainMap).bindTooltip("Delivery: HDL-" + trackOrderId.substring(0,8));
+                    }
+                } catch(e) {}
+            }
+
+            fetchNFZs();
+            fetchAssignments();
         }
 
-        function setupLayerToggles() {
-            document.getElementById('layer-drones').addEventListener('change', e => {
-                showDrones = e.target.checked;
-                Object.values(droneMarkers).forEach(m => showDrones ? mainMap.addLayer(m) : mainMap.removeLayer(m));
-            });
-            document.getElementById('layer-routes').addEventListener('change', e => {
-                showRoutes = e.target.checked;
-                routeLines.forEach(l => showRoutes ? mainMap.addLayer(l) : mainMap.removeLayer(l));
-            });
-            document.getElementById('layer-zones').addEventListener('change', e => {
-                showZones = e.target.checked;
-                zonePolygons.forEach(p => showZones ? mainMap.addLayer(p) : mainMap.removeLayer(p));
-            });
-            document.getElementById('layer-orders').addEventListener('change', e => {
-                showOrders = e.target.checked;
-                if (showOrders) renderOrders();
-                else {
-                    orderMarkers.forEach(m => mainMap.removeLayer(m));
-                    orderMarkers = [];
+        async function fetchNFZs() {
+            if (!document.getElementById('layer-zones').checked) return;
+            
+            try {
+                // Get map bounds to fetch only visible NFZs
+                const bounds = mainMap.getBounds();
+                const res = await fetch(`${API}/admin/nfz?min_lat=${bounds.getSouth()}&min_lon=${bounds.getWest()}&max_lat=${bounds.getNorth()}&max_lon=${bounds.getEast()}`);
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // Clear old zones
+                    zonePolygons.forEach(p => mainMap.removeLayer(p));
+                    zonePolygons = [];
+
+                    L.geoJSON(data, {
+                        pointToLayer: (feature, latlng) => {
+                            return L.circle(latlng, {
+                                radius: feature.properties.buffer_m || 50,
+                                color: '#EF4444',
+                                fillColor: '#EF4444',
+                                fillOpacity: 0.2,
+                                weight: 1
+                            });
+                        },
+                        onEachFeature: (feature, layer) => {
+                            layer.bindTooltip(feature.properties.name || "Restricted Zone");
+                        }
+                    }).addTo(mainMap).on('add', (e) => zonePolygons.push(e.target));
                 }
-            });
+            } catch(e) {}
         }
 
-        function renderZones() {
-            window.HDL.mockData.zones.forEach(z => {
-                const poly = L.polygon(z.coordinates, {
-                    color: '#EF4444',
-                    fillColor: '#EF4444',
-                    fillOpacity: 0.15,
-                    weight: 2
+        async function fetchAssignments() {
+            const token = localStorage.getItem('hdl_admin_token');
+            try {
+                const res = await fetch(`${API}/assignments/?token=${token}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    data.forEach(a => {
+                        if (a.route_path && a.route_path.length > 0) {
+                            const line = L.polyline(a.route_path, { color: '#2563EB', weight: 3, opacity: 0.6, dashArray: '8, 8' });
+                            routeLines.push(line);
+                            if (document.getElementById('layer-routes').checked) line.addTo(mainMap);
+                        }
+                    });
+                }
+            } catch(e) {}
+        }
+
+        function connectTelemetry() {
+            const ws = new WebSocket('ws://localhost:8000/api/drones/ws');
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (!data.drones) return;
+                
+                data.drones.forEach(d => {
+                    updateDroneMarker(d);
                 });
-                poly.bindTooltip(z.name);
-                zonePolygons.push(poly);
-                if (showZones) poly.addTo(mainMap);
-            });
+            };
+            ws.onerror = () => {
+                console.warn("WebSocket error - falling back to polling");
+                setInterval(pollDrones, 3000);
+            };
         }
 
-        function renderRoutes() {
-            window.HDL.mockData.assignments.forEach(a => {
-                const line = L.polyline(a.route, { color: '#2563EB', weight: 3, opacity: 0.6, dashArray: '8, 8' });
-                routeLines.push(line);
-                if (showRoutes) line.addTo(mainMap);
-            });
+        async function pollDrones() {
+            const token = localStorage.getItem('hdl_admin_token');
+            try {
+                const res = await fetch(`${API}/drones/`, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) {
+                    const drones = await res.json();
+                    drones.forEach(d => {
+                        updateDroneMarker({
+                            id: d.id,
+                            drone_id: d.drone_id,
+                            lat: d.latitude,
+                            lon: d.longitude,
+                            battery: d.current_battery,
+                            status: d.status
+                        });
+                    });
+                }
+            } catch(e) {}
         }
 
-        function renderOrders() {
-            window.HDL.mockData.orders.forEach(o => {
-                if (o.status === 'completed' || o.status === 'failed') return;
-                const pMarker = L.circleMarker(o.pickup, { radius: 5, fillColor: '#22C55E', color: '#FFFFFF', weight: 1, fillOpacity: 1 });
-                const dMarker = L.circleMarker(o.delivery, { radius: 5, fillColor: '#EF4444', color: '#FFFFFF', weight: 1, fillOpacity: 1 });
-                pMarker.bindTooltip('Pickup: ' + o.id);
-                dMarker.bindTooltip('Dropoff: ' + o.id);
-
-                orderMarkers.push(pMarker, dMarker);
-                if (showOrders) { pMarker.addTo(mainMap); dMarker.addTo(mainMap); }
-            });
-        }
-
-        function getDroneColor(status) {
-            if (status === 'available') return '#2563EB';
-            if (status === 'assigned') return '#F59E0B';
-            if (status === 'in-flight') return '#22C55E';
-            if (status === 'failed') return '#EF4444';
-            return '#8B9AB3';
-        }
-
-        function initialRenderDrones() {
-            window.HDL.mockData.drones.forEach((d, i) => {
-                // Base random starting point across map
-                d._lat = 40.710 + (i * 0.005);
-                d._lng = -74.020 + (Math.random() * 0.04);
-
-                createOrUpdateDroneMarker(d);
-            });
-        }
-
-        function createOrUpdateDroneMarker(d) {
-            if (!showDrones) return;
-
-            const pos = [d._lat, d._lng];
+        function updateDroneMarker(d) {
+            if (!d.lat || !d.lon) return;
+            const pos = [d.lat, d.lon];
             const color = getDroneColor(d.status);
 
             if (!droneMarkers[d.id]) {
-                // Create
                 const marker = L.circleMarker(pos, { radius: 8, fillColor: color, color: '#FFFFFF', weight: 2, fillOpacity: 1 });
-
-                // Custom battery label using tooltip that's permanently open
-                marker.bindTooltip(`${d.battery}%`, { permanent: true, direction: 'bottom', className: 'battery-tooltip', offset: [0, 8] });
-
-                // Click event to show info panel
-                marker.on('click', () => { showDroneInfo(d); });
-
+                marker.bindTooltip(`${Math.floor(d.battery)}%`, { permanent: true, direction: 'bottom', className: 'battery-tooltip', offset: [0, 8] });
+                marker.on('click', () => showDroneInfo(d));
                 droneMarkers[d.id] = marker;
-                marker.addTo(mainMap);
+                if (document.getElementById('layer-drones').checked) marker.addTo(mainMap);
             } else {
-                // Update
                 const marker = droneMarkers[d.id];
                 marker.setLatLng(pos);
                 marker.setStyle({ fillColor: color });
                 marker.setTooltipContent(`${Math.floor(d.battery)}%`);
-
-                // Update element classes for low battery pulsing
-                const tooltipEl = marker.getTooltip().getElement();
-                if (d.battery < 20) {
-                    if (marker._path) marker._path.classList.add('marker-low-battery');
-                    if (tooltipEl) tooltipEl.style.color = '#EF4444';
-                } else {
-                    if (marker._path) marker._path.classList.remove('marker-low-battery');
-                    if (tooltipEl) tooltipEl.style.color = 'var(--text-primary)';
-                }
             }
+        }
+
+        function getDroneColor(status) {
+            if (status === 'idle') return '#2563EB';
+            if (status === 'assigned') return '#F59E0B';
+            if (status === 'in_flight') return '#22C55E';
+            if (status === 'maintenance') return '#EF4444';
+            return '#8B9AB3';
         }
 
         function showDroneInfo(d) {
             const panel = document.getElementById('drone-info-panel');
             panel.style.display = 'block';
-            document.getElementById('panel-drone-id').textContent = `Drone ${d.id}`;
-
-            const sBadge = document.getElementById('panel-drone-status');
-            sBadge.textContent = d.status.toUpperCase();
-            sBadge.className = `badge ${window.HDL.UI.setBadgeColor(d.status)}`;
-
+            document.getElementById('panel-drone-id').textContent = d.drone_id || `Drone ${d.id}`;
+            document.getElementById('panel-drone-status').textContent = (d.status || 'unknown').toUpperCase();
             document.getElementById('panel-drone-battery').textContent = `${Math.floor(d.battery)}%`;
-
-            // Find assignment
-            const assgn = window.HDL.mockData.assignments.find(a => a.droneId === d.id);
-            if (assgn) {
-                // Find order
-                const order = window.HDL.mockData.orders.find(o => o.id === assgn.orderId);
-                document.getElementById('panel-drone-payload').textContent = order ? `${order.weight} kg` : '-';
-                document.getElementById('panel-drone-eta').textContent = assgn.eta;
-            } else {
-                document.getElementById('panel-drone-payload').textContent = '0 kg';
-                document.getElementById('panel-drone-eta').textContent = '-';
-            }
+            document.getElementById('panel-drone-payload').textContent = d.payload ? `${d.payload} kg` : '-';
         }
 
-        function updateDronesLocation() {
-            window.HDL.mockData.drones.forEach(d => {
-                if (d.status === 'in-flight' || d.status === 'assigned') {
-                    // slight random movement
-                    d._lat += (Math.random() - 0.5) * 0.0005;
-                    d._lng += (Math.random() - 0.5) * 0.0005;
-
-                    if (d.status === 'in-flight') {
-                        d.battery = Math.max(0, d.battery - 0.5); // decrease battery
-                    }
-                    createOrUpdateDroneMarker(d);
-
-                    // update open panel if it's this drone
-                    const panelTitle = document.getElementById('panel-drone-id').textContent;
-                    if (panelTitle === `Drone ${d.id}`) {
-                        document.getElementById('panel-drone-battery').textContent = `${Math.floor(d.battery)}%`;
-                    }
+        function setupLayerToggles() {
+            document.getElementById('layer-drones').addEventListener('change', e => {
+                Object.values(droneMarkers).forEach(m => e.target.checked ? mainMap.addLayer(m) : mainMap.removeLayer(m));
+            });
+            document.getElementById('layer-routes').addEventListener('change', e => {
+                routeLines.forEach(l => e.target.checked ? mainMap.addLayer(l) : mainMap.removeLayer(l));
+            });
+            document.getElementById('layer-zones').addEventListener('change', e => {
+                if (e.target.checked) fetchNFZs();
+                else {
+                    zonePolygons.forEach(p => mainMap.removeLayer(p));
+                    zonePolygons = [];
                 }
             });
         }

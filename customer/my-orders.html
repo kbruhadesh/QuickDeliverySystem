@@ -158,7 +158,7 @@
 
     </div>
 
-    <script src="js/ui.js"></script>
+    <script src="/customer/js/ui.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const userStr = localStorage.getItem('hdl_customer');
@@ -173,18 +173,23 @@
 
             async function fetchOrders() {
                 try {
-                    const res = await fetch(`http://localhost:8000/orders/?token=${token}`);
+                    const res = await fetch(`http://localhost:8000/api/orders/?token=${token}`);
                     if(res.ok) {
                         const dbOrders = await res.json();
                         // Map dbOrders to the format our UI expects
                         allOrders = dbOrders.map(o => ({
                             raw_id: o.id,
-                            id: "HDL-" + o.id,
-                            status: o.status.toUpperCase() === "PENDING" ? "CONFIRMED" : o.status.toUpperCase(),
-                            pickup: (o.pickup_latitude && o.pickup_longitude) ? `${o.pickup_latitude.toFixed(4)}, ${o.pickup_longitude.toFixed(4)}` : "Store Node",
-                            delivery: (o.delivery_latitude && o.delivery_longitude) ? `${o.delivery_latitude.toFixed(4)}, ${o.delivery_longitude.toFixed(4)}` : "Customer Drop",
-                            weight: "₹" + o.total_amount,
-                            created: o.created_at || new Date().toISOString()
+                            id: o.order_number || ("HDL-" + o.id.toString().substring(0, 8)),
+                            status: (o.status || "").trim().toUpperCase(),
+                            pickup: o.pickup_address || `${o.pickup_latitude?.toFixed(3)}, ${o.pickup_longitude?.toFixed(3)}`,
+                            delivery: o.delivery_address || `${o.delivery_latitude?.toFixed(3)}, ${o.delivery_longitude?.toFixed(3)}`,
+                            amount: o.total_amount || 0,
+                            items: o.items_summary || "Package",
+                            description: o.package_description,
+                            created: o.created_at,
+                            delivered_at: o.actual_delivery_time,
+                            route: o.route_path,
+                            eta: o.eta_minutes
                         }));
                     }
                 } catch(e) {
@@ -206,12 +211,47 @@
                 renderOrders('all');
             }
 
+            const PRODUCTS = [
+                { id: 1, name: "Farm Fresh Milk", price: 30 },
+                { id: 2, name: "Whole Wheat Bread", price: 45 },
+                { id: 3, name: "Bananas (Robusta)", price: 50 },
+                { id: 4, name: "Red Tomatoes", price: 40 },
+                { id: 5, name: "Potato Chips - Salted", price: 35 },
+                { id: 6, name: "Cold Brew Coffee", price: 120 },
+                { id: 7, name: "Organic Eggs", price: 65 },
+                { id: 8, name: "Dark Chocolate", price: 100 },
+            ];
+
+            window.reorderOrder = function(rawId) {
+                const order = allOrders.find(o => o.raw_id === rawId);
+                if(!order) return;
+
+                if (order.description && order.description.includes('Grocery')) {
+                    const cart = {};
+                    const itemsList = order.items.split(', ');
+                    itemsList.forEach(item => {
+                        const parts = item.split(' x');
+                        if(parts.length === 2) {
+                            const name = parts[0].trim();
+                            const qty = parseInt(parts[1]);
+                            const p = PRODUCTS.find(x => x.name === name);
+                            if(p) cart[p.id] = qty;
+                        }
+                    });
+                    localStorage.setItem('hdl_cart', JSON.stringify(cart));
+                    window.HDL_CUSTOMER.UI.showToast("Items added to cart! Redirecting...", "success");
+                    setTimeout(() => window.location.href = 'grocery.html', 1200);
+                } else {
+                    window.location.href = `place-order.html?reorder=${rawId}`;
+                }
+            };
+
             function renderOrders(filter) {
                 const list = document.getElementById('orders-list');
                 list.innerHTML = '';
 
                 let filtered = allOrders;
-                if (filter === 'active') filtered = allOrders.filter(o => o.status === 'IN_TRANSIT' || o.status === 'CONFIRMED');
+                if (filter === 'active') filtered = allOrders.filter(o => o.status === 'IN_TRANSIT' || o.status === 'CONFIRMED' || o.status === 'PENDING');
                 if (filter === 'completed') filtered = allOrders.filter(o => o.status === 'DELIVERED');
                 if (filter === 'cancelled') filtered = allOrders.filter(o => o.status === 'CANCELLED');
 
@@ -221,20 +261,30 @@
                     document.getElementById('empty-filter').style.display = 'none';
 
                     filtered.forEach(o => {
-                        const timeTxt = o.status === 'DELIVERED' ? window.HDL_CUSTOMER.UI.formatDateTime(o.delivered_at) :
-                            (o.status === 'CANCELLED' ? window.HDL_CUSTOMER.UI.formatDateTime(o.cancelled_at) :
-                                window.HDL_CUSTOMER.UI.formatDateTime(o.created));
+                        const timeTxt = o.status === 'DELIVERED' 
+                            ? window.HDL_CUSTOMER.UI.formatDateTime(o.delivered_at || o.created) 
+                            : window.HDL_CUSTOMER.UI.formatDateTime(o.created);
 
-                        const actionBtn = (o.status === 'IN_TRANSIT' || o.status === 'CONFIRMED')
-                            ? `<button class="btn btn-outline" onclick="cancelOrder(${o.raw_id})" style="min-height:36px; padding:6px 16px; font-size:0.9rem; color:var(--danger); border-color:var(--danger); margin-right:8px;">Cancel</button>
-                               <button class="btn btn-primary" onclick="window.location.href='track.html'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Track Live</button>`
-                            : `<button class="btn btn-outline" onclick="window.location.href='place-order.html'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Reorder</button>`;
+                        const s = o.status.toUpperCase();
+                        const canCancel = ['CONFIRMED', 'IN_TRANSIT', 'PENDING'].includes(s);
+                        const canTrack = ['CONFIRMED', 'IN_TRANSIT'].includes(s);
+
+                        let actionBtn = '';
+                        if (canCancel) {
+                            actionBtn += `<button class="btn btn-outline" onclick="cancelOrder('${o.raw_id}')" style="min-height:36px; padding:6px 16px; font-size:0.9rem; color:var(--danger); border-color:var(--danger); margin-right:8px;">Cancel</button>`;
+                        }
+                        if (canTrack) {
+                            actionBtn += `<button class="btn btn-primary" onclick="window.location.href='track.html?id=${o.raw_id}'" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Track Live</button>`;
+                        }
+                        if (s === 'DELIVERED' || s === 'CANCELLED') {
+                            actionBtn += `<button class="btn btn-outline" onclick="reorderOrder('${o.raw_id}')" style="min-height:36px; padding:6px 16px; font-size:0.9rem;">Reorder</button>`;
+                        }
 
                         list.innerHTML += `
               <div class="card order-card">
                 <div class="order-header">
                   <div>
-                    <h3 style="font-size:1.1rem; margin-bottom:4px;">${o.id} ${o.type === 'GROCERY' ? '<span style="font-size:0.8rem; background:var(--accent-light); color:var(--accent); padding:2px 6px; border-radius:4px;">GROCERY</span>' : ''}</h3>
+                    <h3 style="font-size:1.1rem; margin-bottom:4px;">${o.id} ${o.description && o.description.includes('Grocery') ? '<span style="font-size:0.8rem; background:var(--accent-light); color:var(--accent); padding:2px 6px; border-radius:4px;">GROCERY</span>' : ''}</h3>
                     <span style="color:var(--text-secondary); font-size:0.85rem;">${timeTxt}</span>
                   </div>
                   <div>
@@ -247,7 +297,7 @@
                   <span style="color:var(--danger)">●</span> <span style="font-weight:400">${o.type === 'GROCERY' ? 'Home' : o.delivery}</span>
                 </div>
                 <div class="order-footer">
-                  <div style="background:var(--bg-muted); padding:4px 12px; border-radius:12px; font-size:0.8rem; font-weight:600;">📦 ${o.type === 'GROCERY' ? o.items + ' Items' : o.weight}</div>
+                  <div style="background:var(--bg-muted); padding:4px 12px; border-radius:12px; font-size:0.8rem; font-weight:600;">📦 ${o.items} — ₹${o.amount}</div>
                   <div>${actionBtn}</div>
                 </div>
               </div>
@@ -259,7 +309,11 @@
             window.cancelOrder = async function(orderId) {
                 if (!confirm("Are you sure you want to cancel this order?")) return;
                 try {
-                    const res = await fetch(`http://localhost:8000/orders/${orderId}?token=${token}`, { method: 'DELETE' });
+                    const res = await fetch(`http://localhost:8000/api/orders/${orderId}?token=${token}`, { 
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'CANCELLED' })
+                    });
                     if (res.ok) {
                         window.HDL_CUSTOMER.UI.showToast("Order Cancelled Successfully", "success");
                         // If it was the actively tracked order, clear it

@@ -234,6 +234,7 @@
     <script src="js/router.js"></script>
     <script>
         let benchChartIns = null;
+        const previousRuns = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.HDL.Router) window.HDL.Router.init();
@@ -242,17 +243,17 @@
 
         function renderPreviousRuns() {
             const tbody = document.querySelector('#prev-runs-table tbody');
-            let html = '';
-            window.HDL.mockData.benchmarks.forEach(b => {
-                html += `
-          <tr>
-            <td>${window.HDL.UI.formatDateTime(b.timestamp)}</td>
-            <td>${b.config}</td>
-            <td><span class="badge info">${b.result}</span></td>
-          </tr>
-        `;
-            });
-            tbody.innerHTML = html;
+            if (previousRuns.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-secondary);">No previous runs in this session.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = previousRuns.map(b => `
+                <tr>
+                    <td>${window.HDL.UI.formatDateTime(b.timestamp)}</td>
+                    <td>${b.config}</td>
+                    <td><span class="badge info">${b.result}</span></td>
+                </tr>
+            `).join('');
         }
 
         function runBenchmark() {
@@ -271,14 +272,12 @@
                 return;
             }
 
-            // UI Reset
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner"></span> Running...`;
             resultsPanel.style.display = 'none';
             progWrap.style.display = 'block';
             statText.style.display = 'block';
 
-            // Animate progress
             setTimeout(() => { progBar.style.width = '100%'; }, 10);
 
             let step = 0;
@@ -288,7 +287,6 @@
                 step++;
             }, 800);
 
-            // Complete after 3s
             setTimeout(() => {
                 clearInterval(int);
                 btn.disabled = false;
@@ -311,23 +309,21 @@
             let labels = [];
             let solveData = [];
             let deliveryData = [];
-
-            // Fake logic for demo
             const baseO = parseInt(orders);
 
             if (useGreedy) {
-                const solve = Math.floor(baseO * 0.2);
-                const deliv = (12 + (baseO * 0.05)).toFixed(1);
-                html += `<tr><td>${baseO}</td><td>Greedy</td><td>${solve}</td><td>${deliv}</td><td>74%</td><td>${Math.floor(baseO * 0.1)}</td></tr>`;
+                const solve = Math.floor(baseO * 0.5);
+                const deliv = (10 + (baseO * 0.05)).toFixed(1);
+                html += `<tr><td>${baseO}</td><td>Greedy</td><td>${solve}ms</td><td>${deliv}m</td><td>75%</td><td>${Math.floor(baseO*0.05)}</td></tr>`;
                 labels.push('Greedy');
                 solveData.push(solve);
                 deliveryData.push(parseFloat(deliv));
             }
 
             if (useOrtools) {
-                const solve = Math.floor(baseO * 1.5);
-                const deliv = (9 + (baseO * 0.02)).toFixed(1);
-                html += `<tr><td>${baseO}</td><td>OR-Tools</td><td>${solve}</td><td>${deliv}</td><td>92%</td><td>0</td></tr>`;
+                const solve = Math.floor(baseO * 3.5);
+                const deliv = (8 + (baseO * 0.02)).toFixed(1);
+                html += `<tr><td>${baseO}</td><td>OR-Tools</td><td>${solve}ms</td><td>${deliv}m</td><td>94%</td><td>0</td></tr>`;
                 labels.push('OR-Tools');
                 solveData.push(solve);
                 deliveryData.push(parseFloat(deliv));
@@ -335,23 +331,14 @@
 
             tbody.innerHTML = html;
 
-            // Save to previous runs
-            let cfgArr = [];
-            if (useGreedy) cfgArr.push('Greedy');
-            if (useOrtools) cfgArr.push('OR-Tools');
-            window.HDL.mockData.benchmarks.unshift({
+            previousRuns.unshift({
                 timestamp: new Date().toISOString(),
-                config: `${orders} Orders, ${cfgArr.join('+')}`,
-                result: `Completed in ~3s`
+                config: `${orders} Orders, ${[useGreedy?'Greedy':'', useOrtools?'OR-Tools':''].filter(Boolean).join('+')}`,
+                result: `Solved ${orders} orders`
             });
             renderPreviousRuns();
 
-            // Chart
             if (benchChartIns) benchChartIns.destroy();
-
-            Chart.defaults.color = '#6B7280';
-            Chart.defaults.font.family = "'DM Sans', sans-serif";
-
             benchChartIns = new Chart(document.getElementById('bench-chart'), {
                 type: 'bar',
                 data: {
@@ -365,14 +352,8 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
-                        y: {
-                            type: 'linear', display: true, position: 'left',
-                            grid: { color: 'rgba(0,0,0,0.05)' }
-                        },
-                        y1: {
-                            type: 'linear', display: true, position: 'right',
-                            grid: { drawOnChartArea: false }
-                        }
+                        y: { type: 'linear', position: 'left', grid: { color: 'rgba(0,0,0,0.05)' } },
+                        y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false } }
                     }
                 }
             });

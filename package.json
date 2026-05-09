@@ -1,0 +1,14 @@
+{
+  "name": "quick-delivery-system",
+  "version": "1.0.0",
+  "description": "Integrated launcher for Drone Delivery System",
+  "scripts": {
+    "backend": "cd backend && venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+    "frontend": "npx serve .",
+    "start": "npx concurrently --kill-others \"npm run backend\" \"npm run frontend\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2",
+    "serve": "^14.2.1"
+  }
+}

@@ -7,6 +7,8 @@ class AddressCreate(BaseModel):
     city: str
     state: str
     pincode: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class AddressResponse(BaseModel):

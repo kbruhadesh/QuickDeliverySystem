@@ -252,55 +252,62 @@
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
-        const API = 'http://localhost:8000';
+        const API = 'http://localhost:8000/api';
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (window.HDL.Router) window.HDL.Router.init();
 
-            const token = window.HDL.Auth.getToken();
+            const token = localStorage.getItem('hdl_admin_token');
             const tableBody = document.querySelector('#dashboard-assignments-table tbody');
 
-            // --- Live Orders ---
-            try {
-                const res = await fetch(`${API}/orders/all?token=${token}`);
-                if (!res.ok) throw new Error('Failed');
-                const orders = await res.json();
-
-                document.getElementById('stat-orders').textContent =
-                    orders.filter(o => ['pending','assigned','in-transit'].includes(o.status)).length;
-                document.getElementById('stat-completed').textContent =
-                    orders.filter(o => o.status === 'completed').length;
-
-                const recent = orders.slice(-8).reverse();
-                if (recent.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6B7280;padding:24px">No orders yet.</td></tr>';
-                } else {
-                    tableBody.innerHTML = recent.map(o => `
-                        <tr>
-                            <td><strong>HDL-${o.id}</strong></td>
-                            <td>${o.drone_id || '—'}</td>
-                            <td><span class="badge ${window.HDL.UI.setBadgeColor(o.status)}">${o.status.toUpperCase()}</span></td>
-                            <td>${window.HDL.UI.formatDateTime(o.created_at)}</td>
-                        </tr>
-                    `).join('');
+            // --- Live System Stats ---
+            async function updateStats() {
+                // 1. Update Core Stats
+                try {
+                    const res = await fetch(`${API}/stats?token=${token}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        document.getElementById('stat-orders').textContent = data.orders.pending;
+                        document.getElementById('stat-available-drones').textContent = data.drones.idle;
+                        document.getElementById('stat-inflight-drones').textContent = data.drones.active;
+                        document.getElementById('stat-completed').textContent = data.orders.completed;
+                    }
+                } catch (e) {
+                    console.error("Dashboard Stats update failed", e);
                 }
-            } catch (e) {
-                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#EF4444;padding:24px">Could not load orders. Is the backend running?</td></tr>';
+
+                // 2. Update Recent Orders Table
+                try {
+                    const ordersRes = await fetch(`${API}/orders/all?token=${token}`);
+                    if (ordersRes.ok) {
+                        const orders = await ordersRes.json();
+                        const recent = (orders || []).slice(-5).reverse();
+                        
+                        if (recent.length === 0) {
+                            tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#6B7280;padding:24px">No orders yet.</td></tr>';
+                        } else {
+                            tableBody.innerHTML = recent.map(o => {
+                                const s = (o.status || 'PENDING').toUpperCase();
+                                return `
+                                    <tr>
+                                        <td><strong>HDL-${o.order_number || o.id.toString().substring(0,8)}</strong></td>
+                                        <td>${o.drone_id || '—'}</td>
+                                        <td><span class="badge ${window.HDL.UI.setBadgeColor(s)}">${s}</span></td>
+                                        <td>${o.eta_minutes ? Math.round(o.eta_minutes) + 'm' : '—'}</td>
+                                    </tr>
+                                `;
+                            }).join('');
+                        }
+                    }
+                } catch (e) {
+                    console.error("Dashboard Orders update failed", e);
+                }
             }
 
-            // --- Live Drone Stats ---
-            try {
-                const res = await fetch(`${API}/drones/`, { headers: { Authorization: `Bearer ${token}` } });
-                if (res.ok) {
-                    const drones = await res.json();
-                    document.getElementById('stat-available-drones').textContent =
-                        drones.filter(d => d.status === 'available').length;
-                    document.getElementById('stat-inflight-drones').textContent =
-                        drones.filter(d => d.status === 'busy').length;
-                }
-            } catch (e) { /* drones endpoint optional */ }
+            updateStats();
+            setInterval(updateStats, 10000); // Update every 10s
 
-            // --- Leaflet Map + WebSocket ---
+            // --- Live Map Overview ---
             setTimeout(() => {
                 const miniMap = L.map('mini-map', { zoomControl: false, attributionControl: false })
                     .setView([17.3850, 78.4867], 12);
@@ -309,50 +316,38 @@
                     maxZoom: 19
                 }).addTo(miniMap);
 
-                // No-Fly Zones
-                fetch(`${API}/api/nfz?min_lat=17.3&min_lon=78.3&max_lat=17.5&max_lon=78.5`)
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.features) {
-                            L.geoJSON(data, {
-                                style: { color: '#EF4444', weight: 1, fillColor: '#EF4444', fillOpacity: 0.15 }
-                            }).addTo(miniMap);
-                        }
-                    }).catch(() => {});
-
-                // Live Drone WebSocket
+                // Live Drone Telemetry
                 const droneMarkers = {};
-                const ws = new WebSocket('ws://localhost:8000/api/drones/ws');
-                ws.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    if (!data.drones) return;
-                    data.drones.forEach(d => {
-                        let color = '#2563EB';
-                        if (d.status === 'in-flight') color = '#22C55E';
-                        if (d.status === 'assigned')  color = '#F59E0B';
-                        if (d.status === 'failed')    color = '#EF4444';
+                async function fetchDrones() {
+                    try {
+                        const res = await fetch(`${API}/drones/`, { headers: { 'Authorization': `Bearer ${token}` } });
+                        if (res.ok) {
+                            const drones = await res.json();
+                            drones.forEach(d => {
+                                let color = '#2563EB'; // idle
+                                if (d.status === 'in_flight') color = '#22C55E';
+                                if (d.status === 'assigned')  color = '#F59E0B';
+                                if (d.status === 'maintenance') color = '#EF4444';
 
-                        if (droneMarkers[d.id]) {
-                            droneMarkers[d.id].setLatLng([d.lat, d.lon]);
-                            droneMarkers[d.id].setStyle({ fillColor: color });
-                        } else {
-                            droneMarkers[d.id] = L.circleMarker([d.lat, d.lon], {
-                                radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1
-                            }).addTo(miniMap).bindTooltip(`🚁 ${d.id}`);
+                                if (d.latitude && d.longitude) {
+                                    if (droneMarkers[d.id]) {
+                                        droneMarkers[d.id].setLatLng([d.latitude, d.longitude]);
+                                        droneMarkers[d.id].setStyle({ fillColor: color });
+                                    } else {
+                                        droneMarkers[d.id] = L.circleMarker([d.latitude, d.longitude], {
+                                            radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 1
+                                        }).addTo(miniMap).bindTooltip(`🚁 ${d.drone_id}`);
+                                    }
+                                }
+                            });
                         }
-                    });
-                    document.getElementById('stat-inflight-drones').textContent =
-                        data.drones.filter(d => d.status === 'in-flight').length;
-                };
-                ws.onerror  = () => console.warn('WebSocket error — drone telemetry unavailable');
-                ws.onclose  = () => console.log('WebSocket closed');
-
-                // Trigger simulation if not already running
-                fetch(`${API}/api/simulation/step`, { method: 'POST' }).catch(() => {});
-
+                    } catch(e) {}
+                }
+                
+                fetchDrones();
+                setInterval(fetchDrones, 3000);
             }, 300);
         });
     </script>
 </body>
 </html>
-

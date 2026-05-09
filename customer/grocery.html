@@ -6,7 +6,8 @@
   <title>Quick Commerce | HDL Delivery</title>
   
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
-  
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="css/base.css">
   <link rel="stylesheet" href="css/layout.css">
   <link rel="stylesheet" href="css/components.css">
@@ -168,6 +169,7 @@
         <input type="text" id="pincode-input" class="input-control" placeholder="e.g. 500081" maxlength="6" style="text-align:center; font-size:1.2rem; letter-spacing:4px; font-weight:700;">
       </div>
       <div id="pincode-error" style="color:var(--danger); font-size:0.85rem; margin-bottom:16px; display:none;">No dark stores service this pincode yet!</div>
+      <div id="store-selection-list" style="display:none; margin-top:16px;"></div>
       
       <button class="btn btn-primary btn-block" id="check-pincode-btn">Check Availability</button>
       <button class="btn btn-outline btn-block" style="margin-top:12px; background:none; border:none; text-shadow:none;" onclick="window.location.href='index.html'">Cancel</button>
@@ -232,7 +234,11 @@
       </div>
       
       <div id="cart-items" style="flex:1; overflow-y:auto; margin-bottom:16px;">
-          <!-- Cart content -->
+          <!-- Cart items injected here -->
+      </div>
+      <div id="route-info-preview" style="display:none; padding:12px; background:var(--bg-muted); border-radius:8px; margin-bottom:12px;">
+          <div id="checkout-map" style="height: 180px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 8px;"></div>
+          <div id="route-text" style="font-size:0.85rem; color:var(--text-secondary);"></div>
       </div>
       
       <div style="margin-bottom: 16px;">
@@ -271,7 +277,7 @@
     </div>
   </div>
 
-  <script src="js/ui.js"></script>
+  <script src="/customer/js/ui.js?v=3"></script>
   <script>
     let DARK_STORES = [];
     const PRODUCTS = [
@@ -285,16 +291,18 @@
         { id: 8, name: "Dark Chocolate", desc: "100 g", price: 100, emoji: "🍫" },
     ];
 
-    let cart = {};
+    let cart = JSON.parse(localStorage.getItem('hdl_cart')) || {};
     let activeStore = null;
     let currentRouteData = null;
     let simulatedDeliveryLat = null;
     let simulatedDeliveryLng = null;
+    let checkoutMap = null;
+    let checkoutRouteLine = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
         // Fetch Stores from Database
         try {
-            const res = await fetch('http://localhost:8000/store/');
+            const res = await fetch('http://localhost:8000/api/store/');
             if(res.ok) {
                 const dbStores = await res.json();
                 DARK_STORES = dbStores.map(s => ({
@@ -337,29 +345,64 @@
         });
         
         document.getElementById('pay-btn').addEventListener('click', handlePayment);
+
+        // Load initial state
+        if (Object.keys(cart).length > 0) {
+            updateCartUI();
+        }
     });
 
     function validatePincode(pin) {
         document.getElementById('pincode-error').style.display = 'none';
+        const selectionContainer = document.getElementById('store-selection-list');
+        selectionContainer.innerHTML = '';
+        selectionContainer.style.display = 'none';
         
-        // Match by exact pincode first
-        let store = DARK_STORES.find(s => s.pincodes.includes(pin));
+        // Find all matching stores
+        let matches = DARK_STORES.filter(s => s.pincodes.includes(pin));
         
-        // Fallback to 3-digit prefix for regional delivery
-        if (!store) {
+        // Fallback to 3-digit prefix if no exact match
+        if (matches.length === 0) {
             const prefix = pin.substring(0, 3);
-            store = DARK_STORES.find(s => s.pincodes.some(p => p.startsWith(prefix)));
+            matches = DARK_STORES.filter(s => s.pincodes.some(p => p.startsWith(prefix)));
         }
         
-        if(store) {
-            activeStore = store;
-            localStorage.setItem('hdl_pincode', pin);
-            document.getElementById('pincode-modal').style.display = 'none';
-            document.getElementById('current-pincode').textContent = pin;
-            document.getElementById('current-store').textContent = store.name;
-        } else {
+        if (matches.length === 0) {
             document.getElementById('pincode-error').style.display = 'block';
+            return;
         }
+
+        if (matches.length === 1) {
+            selectStore(matches[0], pin);
+        } else {
+            // Show selection list
+            selectionContainer.style.display = 'block';
+            const title = document.createElement('p');
+            title.style.margin = '12px 0 8px';
+            title.style.fontSize = '0.9rem';
+            title.style.fontWeight = '600';
+            title.textContent = 'Multiple stores found. Pick one:';
+            selectionContainer.appendChild(title);
+
+            matches.forEach(store => {
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-outline btn-block';
+                btn.style.marginBottom = '8px';
+                btn.style.textAlign = 'left';
+                btn.style.fontSize = '0.9rem';
+                btn.innerHTML = `🏪 ${store.name}`;
+                btn.onclick = () => selectStore(store, pin);
+                selectionContainer.appendChild(btn);
+            });
+        }
+    }
+
+    function selectStore(store, pin) {
+        activeStore = store;
+        localStorage.setItem('hdl_pincode', pin);
+        document.getElementById('pincode-modal').style.display = 'none';
+        document.getElementById('current-pincode').textContent = pin;
+        document.getElementById('current-store').textContent = store.name;
     }
 
     function addToCart(id) {
@@ -381,8 +424,9 @@
         for(const [id, qty] of Object.entries(cart)) {
             count += qty;
             const p = PRODUCTS.find(x => x.id == id);
-            total += (p.price * qty);
+            if (p) total += (p.price * qty);
         }
+        localStorage.setItem('hdl_cart', JSON.stringify(cart));
         
         const floatCart = document.getElementById('floating-cart');
         if(count > 0) {
@@ -406,7 +450,7 @@
         const token = localStorage.getItem('hdl_customer_token');
         const addrSelect = document.getElementById('checkout-address');
         try {
-            const res = await fetch(`http://localhost:8000/address/?token=${token}`);
+            const res = await fetch(`http://localhost:8000/api/address/?token=${token}`);
             if(res.ok) {
                 const addresses = await res.json();
                 addrSelect.innerHTML = '';
@@ -472,35 +516,35 @@
         }
 
         // Use geocoded coordinates stored from backend at address-save time
+        simulatedDeliveryLat = null;
+        simulatedDeliveryLng = null;
         if (selectedOption.dataset.lat && selectedOption.dataset.lng) {
-            // Best case: we already have coordinates from the backend
             simulatedDeliveryLat = parseFloat(selectedOption.dataset.lat);
             simulatedDeliveryLng = parseFloat(selectedOption.dataset.lng);
         } else {
-            // Fallback: try Nominatim geocoding now
-            try {
-                const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressText + ', India')}&limit=1`);
-                const geoData = await geoRes.json();
-                if (geoData && geoData.length > 0) {
-                    simulatedDeliveryLat = parseFloat(geoData[0].lat);
-                    simulatedDeliveryLng = parseFloat(geoData[0].lon);
-                    selectedOption.dataset.lat = simulatedDeliveryLat;
-                    selectedOption.dataset.lng = simulatedDeliveryLng;
-                } else {
-                    // Last resort: offset from store so route planning always works
-                    console.warn("Geocoding failed - using estimated delivery coordinates");
-                    simulatedDeliveryLat = activeStore.lat - 0.02;
-                    simulatedDeliveryLng = activeStore.lng + 0.02;
-                }
-            } catch (e) {
-                console.warn("Geocoding service unavailable - using estimated delivery coordinates");
-                simulatedDeliveryLat = activeStore.lat - 0.02;
-                simulatedDeliveryLng = activeStore.lng + 0.02;
-            }
+            // No coordinates available - cannot calculate route accurately
+            document.getElementById('route-info-container').style.display = 'none';
+            document.getElementById('pay-btn').disabled = true;
+            document.getElementById('pay-btn').innerHTML = "Address coordinates missing";
+            console.error("Geocoding missing for address:", addressText);
+            return;
+        }
+
+        // Validate distance (10-min delivery shouldn't exceed ~15km)
+        const directDist = window.HDL_CUSTOMER.UI.haversineDistance(
+            activeStore.lat, activeStore.lng, 
+            simulatedDeliveryLat, simulatedDeliveryLng
+        ) / 1000; // in km
+
+        if (directDist > 15) {
+            alert(`Selected address is ${directDist.toFixed(1)}km away from ${activeStore.name}. 10-minute delivery is only available within a 15km radius! Please pick a store closer to your location.`);
+            document.getElementById('pay-btn').disabled = true;
+            document.getElementById('pay-btn').innerHTML = "Too far for 10-min delivery";
+            return;
         }
 
         try {
-            const res = await fetch(`http://localhost:8000/orders/calculate_eta`, {
+            const res = await fetch(`http://localhost:8000/api/orders/calculate_eta`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -517,6 +561,37 @@
                 document.getElementById('route-info-container').style.display = 'block';
                 document.getElementById('cart-eta').textContent = data.eta_min + ' min';
                 document.getElementById('cart-distance').textContent = data.distance_km + ' km';
+
+                // Display route preview map
+                document.getElementById('route-info-preview').style.display = 'block';
+                document.getElementById('route-text').innerHTML = `<b>${data.distance_km} km</b> in <b>${data.eta_min} mins</b>`;
+                
+                const mapDiv = document.getElementById('checkout-map');
+                if (!checkoutMap) {
+                    checkoutMap = L.map('checkout-map', { zoomControl: false });
+                    
+                    // Esri Satellite
+                    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        maxZoom: 19,
+                        attribution: '© Esri'
+                    }).addTo(checkoutMap);
+
+                    // Transparent Labels Overlay
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        opacity: 0.4,
+                        attribution: '© OSM'
+                    }).addTo(checkoutMap);
+                }
+
+                if (checkoutRouteLine) checkoutMap.removeLayer(checkoutRouteLine);
+
+                if (data.path && data.path.length > 0) {
+                    checkoutRouteLine = L.polyline(data.path, { color: '#3b82f6', weight: 4 }).addTo(checkoutMap);
+                    checkoutMap.fitBounds(checkoutRouteLine.getBounds(), { padding: [10, 10] });
+                }
+                
+                setTimeout(() => { checkoutMap.invalidateSize(); }, 100);
             }
         } catch(e) {
             console.error("Failed to calculate route");
@@ -578,15 +653,33 @@
         }
 
         try {
-            const res = await fetch(`http://localhost:8000/orders/?token=${token}`, {
+            // Calculate total weight (assume ~0.3kg per item)
+            let totalItems = 0;
+            let totalAmount = 0;
+            let itemNames = [];
+            for(const [id, qty] of Object.entries(cart)) {
+                totalItems += qty;
+                const p = PRODUCTS.find(x => x.id == parseInt(id));
+                totalAmount += (p.price * qty);
+                itemNames.push(`${p.name} x${qty}`);
+            }
+            const estimatedWeight = Math.min(totalItems * 0.3, 5.0); // cap at 5kg
+
+            const res = await fetch(`http://localhost:8000/api/orders/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    items: items,
                     pickup_latitude: activeStore.lat,
                     pickup_longitude: activeStore.lng,
+                    pickup_address: activeStore.name,
                     delivery_latitude: simulatedDeliveryLat,
-                    delivery_longitude: simulatedDeliveryLng
+                    delivery_longitude: simulatedDeliveryLng,
+                    delivery_address: addrSelect.options[addrSelect.selectedIndex].text,
+                    package_weight: estimatedWeight,
+                    package_description: `Grocery order from ${activeStore.name}`,
+                    items_summary: itemNames.join(', '),
+                    total_amount: totalAmount,
+                    priority: 2
                 })
             });
             const data = await res.json();
@@ -594,14 +687,15 @@
             if (res.ok) {
                 // Keep local logistical tracking alive for the visual map WITH RRT* ROUTE
                 localStorage.setItem('hdl_latest_order', JSON.stringify({
-                    id: data.order_id,
+                    id: data.id,
+                    order_number: data.order_number,
                     type: "GROCERY",
                     pickup: { lat: activeStore.lat, lng: activeStore.lng },
                     delivery: { lat: simulatedDeliveryLat, lng: simulatedDeliveryLng },
                     eta: currentRouteData ? currentRouteData.eta_min : 12,
                     drone: 'D-11',
                     store: activeStore.name,
-                    items: items.length,
+                    items: totalItems,
                     route: currentRouteData ? currentRouteData.path : null // SAVE ACTUAL RRT* PATH HERE!
                 }));
                 window.location.href = 'order-confirmed.html';

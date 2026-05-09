@@ -173,72 +173,103 @@
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
+        const API = 'http://localhost:8000/api';
         let activeMapNodes = {};
+        let currentAssignments = [];
 
         document.addEventListener('DOMContentLoaded', () => {
             if (window.HDL.Router) window.HDL.Router.init();
             renderAssignments();
         });
 
-        function runAssignment() {
+        async function runAssignment() {
             const btn = document.getElementById('run-assign-btn');
             const grid = document.getElementById('assign-grid');
             const loader = document.getElementById('loading-area');
+            const token = localStorage.getItem('hdl_admin_token');
 
-            const ogText = btn.innerHTML;
-            btn.innerHTML = `<span class="spinner"></span> Running...`;
             btn.disabled = true;
+            btn.innerHTML = `<span class="spinner"></span> Running...`;
             grid.style.display = 'none';
             loader.style.display = 'block';
 
-            setTimeout(() => {
-                btn.innerHTML = ogText;
+            try {
+                // 1. Get all pending orders
+                const ordersRes = await fetch(`${API}/orders/all?token=${token}`);
+                const orders = await ordersRes.json();
+                const pending = orders.filter(o => o.status === 'PENDING');
+
+                if (pending.length === 0) {
+                    window.HDL.UI.showToast("No pending orders to assign", "info");
+                } else {
+                    // 2. Try to assign each one
+                    let assignedCount = 0;
+                    for (const order of pending) {
+                        const res = await fetch(`${API}/assignments/assign?token=${token}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ order_id: order.id })
+                        });
+                        if (res.ok) assignedCount++;
+                    }
+                    window.HDL.UI.showToast(`Successfully assigned ${assignedCount} orders`, "success");
+                }
+            } catch (e) {
+                window.HDL.UI.showToast("Optimization failed", "error");
+            } finally {
                 btn.disabled = false;
+                btn.innerHTML = "Run Assignment";
                 loader.style.display = 'none';
                 grid.style.display = 'grid';
-                window.HDL.UI.showToast("Assignments generated successfully", "success");
-            }, 1500);
+                renderAssignments();
+            }
         }
 
-        function renderAssignments() {
+        async function renderAssignments() {
             const grid = document.getElementById('assign-grid');
-            let html = '';
+            const token = localStorage.getItem('hdl_admin_token');
+            grid.innerHTML = '';
 
-            window.HDL.mockData.assignments.forEach((a, i) => {
-                const complianceBadge = a.compliance ?
-                    `<span class="badge success">✅ Compliant</span>` :
-                    `<span class="badge danger">⚠️ Violation</span>`;
+            try {
+                const res = await fetch(`${API}/assignments/?token=${token}`);
+                if (!res.ok) throw new Error('API Error');
+                currentAssignments = await res.json();
 
-                let weatherColor = 'neutral';
-                if (a.weatherImpact === 'Medium') weatherColor = 'warning';
-                if (a.weatherImpact === 'High') weatherColor = 'danger';
+                if (currentAssignments.length === 0) {
+                    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:48px; color:var(--text-secondary);">No active assignments found.</div>';
+                    return;
+                }
 
-                html += `
-          <div class="card assign-card" onclick="toggleMap(${i}, this)">
-            <div class="algo-label">${a.algorithm}</div>
-            <div class="assign-header">
-              <div class="assign-title">${a.droneId} ➔ ${a.orderId}</div>
-              ${complianceBadge}
-            </div>
-            <div class="assign-detail"><span class="assign-detail-label">Distance</span><span class="assign-detail-val">${a.distance} km</span></div>
-            <div class="assign-detail"><span class="assign-detail-label">ETA</span><span class="assign-detail-val">${a.eta}</span></div>
-            <div class="assign-detail"><span class="assign-detail-label">Predicted Battery</span><span class="assign-detail-val">${a.batteryPred}%</span></div>
-            <div class="assign-detail"><span class="assign-detail-label">Weather Impact</span><span class="badge ${weatherColor}">${a.weatherImpact}</span></div>
-            
-            <div class="map-expand" id="map-expand-${i}">
-              <div id="map-container-${i}" class="mini-route-map"></div>
-            </div>
-          </div>
-        `;
-            });
-            grid.innerHTML = html;
+                currentAssignments.forEach((a, i) => {
+                    const statusClass = window.HDL.UI.setBadgeColor(a.status);
+                    
+                    grid.innerHTML += `
+                        <div class="card assign-card" onclick="toggleMap(${i}, this)">
+                            <div class="algo-label">RRT* Path Planner</div>
+                            <div class="assign-header">
+                                <div class="assign-title">Assignment #${a.id.substring(0,8)}</div>
+                                <span class="badge ${statusClass}">${a.status.toUpperCase()}</span>
+                            </div>
+                            <div class="assign-detail"><span class="assign-detail-label">Distance</span><span class="assign-detail-val">${a.total_distance?.toFixed(2) || '0.00'} km</span></div>
+                            <div class="assign-detail"><span class="assign-detail-label">Est. Time</span><span class="assign-detail-val">${a.estimated_duration?.toFixed(1) || '0.0'} min</span></div>
+                            <div class="assign-detail"><span class="assign-detail-label">Battery Usage</span><span class="assign-detail-val">${a.predicted_battery_consumption?.toFixed(1) || '0.0'}%</span></div>
+                            <div class="assign-detail"><span class="assign-detail-label">Assigned At</span><span class="assign-detail-val">${window.HDL.UI.formatDateTime(a.assigned_at)}</span></div>
+                            
+                            <div class="map-expand" id="map-expand-${i}">
+                                <div id="map-container-${i}" class="mini-route-map"></div>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch (e) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:48px; color:var(--danger);">Failed to load assignments.</div>';
+            }
         }
 
         function toggleMap(index, cardEl) {
             const expandEl = document.getElementById(`map-expand-${index}`);
             const isExpanded = expandEl.classList.contains('active');
 
-            // Close all others
             document.querySelectorAll('.map-expand').forEach(el => el.classList.remove('active'));
 
             if (!isExpanded) {
@@ -246,16 +277,17 @@
 
                 setTimeout(() => {
                     if (!activeMapNodes[index]) {
-                        const assignment = window.HDL.mockData.assignments[index];
+                        const assignment = currentAssignments[index];
+                        if (!assignment.route_path || assignment.route_path.length === 0) return;
+
                         const map = L.map(`map-container-${index}`, { zoomControl: false, attributionControl: false });
                         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
 
-                        const polyline = L.polyline(assignment.route, { color: '#2563EB', weight: 3 }).addTo(map);
+                        const polyline = L.polyline(assignment.route_path, { color: '#2563EB', weight: 3 }).addTo(map);
                         map.fitBounds(polyline.getBounds(), { padding: [20, 20] });
 
-                        // Start/End markers
-                        const start = assignment.route[0];
-                        const end = assignment.route[assignment.route.length - 1];
+                        const start = assignment.route_path[0];
+                        const end = assignment.route_path[assignment.route_path.length - 1];
                         L.circleMarker(start, { radius: 6, fillColor: '#22C55E', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(map);
                         L.circleMarker(end, { radius: 6, fillColor: '#EF4444', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(map);
 
@@ -263,7 +295,7 @@
                     } else {
                         activeMapNodes[index].invalidateSize();
                     }
-                }, 300); // Wait for CSS transition
+                }, 300);
             }
         }
     </script>

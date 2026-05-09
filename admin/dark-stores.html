@@ -126,60 +126,60 @@
         </main>
     </div>
 
-    <!-- Scripts -->
     <script src="js/auth.js"></script>
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
+        const API = 'http://localhost:8000/api';
+        
         document.addEventListener('DOMContentLoaded', () => {
             if (window.HDL.Router) window.HDL.Router.init();
-            
-            const container = document.getElementById('stores-container');
-            const stores = window.HDL.mockData.darkStores || [];
-            
-            if(stores.length === 0) {
-                container.innerHTML = `<p style="color:var(--text-secondary);">No dark stores configured yet.</p>`;
-                return;
-            }
-            
-            stores.forEach(store => {
-                const perc = Math.round((store.stock / store.maxStock) * 100);
-                let colorClass = 'success';
-                if(perc < 30) colorClass = 'warning';
-                if(perc < 10) colorClass = 'danger';
-                
-                container.innerHTML += `
-                    <div class="card store-card">
-                        <div class="store-header">
-                            <div>
-                                <div class="store-name">${store.name}</div>
-                                <div class="store-location">Pincodes: ${store.pincodes.join(', ')}</div>
-                            </div>
-                            <span class="badge ${store.status === 'Active' ? 'success' : 'warning'}">${store.status}</span>
-                        </div>
-                        
-                        <div class="stat-row">
-                            <span style="color:var(--text-secondary);">Active Orders</span>
-                            <strong>${store.activeOrders}</strong>
-                        </div>
-                        <div class="stat-row">
-                            <span style="color:var(--text-secondary);">Drones Stationed</span>
-                            <strong>${store.dronesStationed}</strong>
-                        </div>
-                        
-                        <div style="margin-top: 16px;">
-                            <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600;">
-                                <span>Inventory Capacity</span>
-                                <span style="color:var(--${colorClass})">${perc}%</span>
-                            </div>
-                            <div class="progress-bar-container">
-                                <div class="progress-bar" style="width: ${perc}%; background: var(--${colorClass});"></div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
+            fetchStores();
         });
+
+        async function fetchStores() {
+            const container = document.getElementById('stores-container');
+            try {
+                const res = await fetch(`${API}/store/`);
+                if (res.ok) {
+                    const stores = await res.json();
+                    if (stores.length === 0) {
+                        container.innerHTML = '<p style="color:var(--text-secondary); grid-column:1/-1; text-align:center; padding:40px;">No operational hubs found in database.</p>';
+                        return;
+                    }
+                    
+                    container.innerHTML = stores.map(store => `
+                        <div class="card store-card">
+                            <div class="store-header">
+                                <div>
+                                    <div class="store-name">${store.name}</div>
+                                    <div class="store-location">Pincode: ${store.pincode}</div>
+                                    <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">${store.address}</div>
+                                </div>
+                                <span class="badge success">Active</span>
+                            </div>
+                            
+                            <div class="stat-row">
+                                <span style="color:var(--text-secondary);">Coordinates</span>
+                                <strong>${store.latitude?.toFixed(4)}, ${store.longitude?.toFixed(4)}</strong>
+                            </div>
+                            
+                            <div style="margin-top: 16px;">
+                                <div style="display:flex; justify-content:space-between; font-size:0.85rem; font-weight:600;">
+                                    <span>Inventory Health</span>
+                                    <span style="color:var(--success)">Optimal</span>
+                                </div>
+                                <div class="progress-bar-container">
+                                    <div class="progress-bar" style="width: 85%; background: var(--success);"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch(e) {
+                container.innerHTML = '<p style="color:var(--danger);">Failed to load stores.</p>';
+            }
+        }
     </script>
 </body>
 </html>

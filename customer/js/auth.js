@@ -8,7 +8,7 @@ window.HDL_CUSTOMER.Auth = {
         if (errorEl) errorEl.style.display = 'none';
 
         try {
-            const res = await fetch(`http://localhost:8000/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, {
+            const res = await fetch(`http://localhost:8000/api/auth/login?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, {
                 method: 'POST'
             });
 
@@ -17,7 +17,7 @@ window.HDL_CUSTOMER.Auth = {
 
             if (res.ok && data.access_token) {
                 // Fetch user details
-                const meRes = await fetch(`http://localhost:8000/auth/me?token=${data.access_token}`);
+                const meRes = await fetch(`http://localhost:8000/api/auth/me?token=${data.access_token}`);
                 const user = await meRes.json();
 
                 localStorage.setItem('hdl_customer_token', data.access_token);
@@ -44,7 +44,7 @@ window.HDL_CUSTOMER.Auth = {
         window.HDL_CUSTOMER.UI.showSpinner(btn);
 
         try {
-            const res = await fetch('http://localhost:8000/auth/register', {
+            const res = await fetch('http://localhost:8000/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ full_name: name, email, phone, password })

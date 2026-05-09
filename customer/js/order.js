@@ -60,7 +60,7 @@ window.HDL_CUSTOMER.OrderFlow = {
                     else if (weightSelect.value.includes('3-5')) weightKg = 4.0;
                 }
 
-                const res = await fetch(`http://localhost:8000/orders/calculate_eta`, {
+                const res = await fetch(`http://localhost:8000/api/orders/calculate_eta`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -95,7 +95,7 @@ window.HDL_CUSTOMER.OrderFlow = {
 
                     // Draw the ACTUAL RRT* path on the preview map
                     if (this.previewRoute) this.previewMap.removeLayer(this.previewRoute);
-                    this.previewRoute = L.polyline(this.calculatedPath, { color: 'var(--accent)', weight: 4 }).addTo(this.previewMap);
+                    this.previewRoute = L.polyline(this.calculatedPath, { color: '#0055FF', weight: 4 }).addTo(this.previewMap);
                     this.previewMap.fitBounds(this.previewRoute.getBounds(), { padding: [40, 40] });
                 } else {
                     alert("Failed to calculate ETA: " + (data.detail || ""));
@@ -119,22 +119,45 @@ window.HDL_CUSTOMER.OrderFlow = {
             }
 
             try {
-                const res = await fetch(`http://localhost:8000/orders/?token=${token}`, {
+                // Parse weight from dropdown
+                const weightSelect = document.getElementById('package-weight');
+                let weightKg = 0.5;
+                if (weightSelect && weightSelect.value) {
+                    if (weightSelect.value.includes('1-2')) weightKg = 1.5;
+                    else if (weightSelect.value.includes('2-3')) weightKg = 2.5;
+                    else if (weightSelect.value.includes('3-5')) weightKg = 4.0;
+                    else weightKg = 0.5;
+                }
+
+                const specialInstructions = document.getElementById('special-instructions');
+                
+                // Calculate estimated price: ₹50 base + ₹25/km
+                const dist = window.HDL_CUSTOMER.UI.haversineDistance(this.pickupLatlng.lat, this.pickupLatlng.lng, this.deliveryLatlng.lat, this.deliveryLatlng.lng);
+                const estimatedPrice = 50 + Math.ceil(dist * 25);
+
+                const res = await fetch(`http://localhost:8000/api/orders/`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        items: [],
                         pickup_latitude: this.pickupLatlng.lat,
                         pickup_longitude: this.pickupLatlng.lng,
+                        pickup_address: document.getElementById('pickup-coords')?.value || null,
                         delivery_latitude: this.deliveryLatlng.lat,
-                        delivery_longitude: this.deliveryLatlng.lng
+                        delivery_longitude: this.deliveryLatlng.lng,
+                        delivery_address: document.getElementById('delivery-coords')?.value || null,
+                        package_weight: weightKg,
+                        package_description: "General Package Delivery",
+                        items_summary: specialInstructions ? specialInstructions.value : "Package",
+                        total_amount: estimatedPrice,
+                        priority: 2
                     })
                 });
                 const data = await res.json();
 
                 if (res.ok) {
                     localStorage.setItem('hdl_latest_order', JSON.stringify({
-                        id: data.order_id,
+                        id: data.id,
+                        order_number: data.order_number,
                         pickup: this.pickupLatlng,
                         delivery: this.deliveryLatlng,
                         eta: this.calculatedEta || 22,
@@ -145,7 +168,7 @@ window.HDL_CUSTOMER.OrderFlow = {
                     window.location.href = 'order-confirmed.html';
                 } else {
                     window.HDL_CUSTOMER.UI.hideSpinner(e.target);
-                    alert("Order creation failed: " + (data.detail || ""));
+                    alert("Order creation failed: " + (data.detail || JSON.stringify(data)));
                 }
             } catch (err) {
                 window.HDL_CUSTOMER.UI.hideSpinner(e.target);
@@ -158,6 +181,13 @@ window.HDL_CUSTOMER.OrderFlow = {
             window.HDL_CUSTOMER.UI.showToast('Welcome! Place your first order.', 'success');
             localStorage.removeItem('hdl_show_welcome');
         }
+    },
+
+    selectSearchResult: function (type, item) {
+        const latlng = L.latLng(parseFloat(item.lat), parseFloat(item.lon));
+        const map = type === 'pickup' ? this.pickupMap : this.deliveryMap;
+        map.flyTo(latlng, 16);
+        map.fireEvent('click', { latlng: latlng });
     },
 
     searchLocation: async function (type) {
@@ -206,7 +236,7 @@ window.HDL_CUSTOMER.OrderFlow = {
         }
 
         if (this.pickupLatlng && this.deliveryLatlng) {
-            this.previewRoute = L.polyline([this.pickupLatlng, this.deliveryLatlng], { color: 'var(--accent)', weight: 3, dashArray: '8, 8' }).addTo(this.previewMap);
+            this.previewRoute = L.polyline([this.pickupLatlng, this.deliveryLatlng], { color: '#0055FF', weight: 3, dashArray: '8, 8' }).addTo(this.previewMap);
         }
 
         if (bounds.length > 0) {

@@ -103,24 +103,13 @@ class RRTPlanner:
 
         logger.info(f"Planning path from ({start_lat:.6f}, {start_lon:.6f}) to ({goal_lat:.6f}, {goal_lon:.6f})")
         
-        # Get bounds - use base buffer approach from old code
-        # Old code: base_buffer = base_gdf.to_crs(epsg=3857).buffer(5000).to_crs(epsg=4326)
-        # Then: bounds = buffer_utm.total_bounds
-        base_lon, base_lat = 79.548670, 18.006020
-        base_3857 = self.env.point_to_3857(base_lon, base_lat)
-        buffer_m = 5000  # 5km buffer like old code
+        # Get bounds - centered around start and goal with a 2km buffer
+        buffer_m = 2000  # 2km buffer around the segment
         
-        # Start with base buffer
-        min_x = base_3857[0] - buffer_m
-        min_y = base_3857[1] - buffer_m
-        max_x = base_3857[0] + buffer_m
-        max_y = base_3857[1] + buffer_m
-        
-        # Expand bounds to include start and goal (old code does this)
-        min_x = min(min_x, start_3857[0], goal_3857[0])
-        min_y = min(min_y, start_3857[1], goal_3857[1])
-        max_x = max(max_x, start_3857[0], goal_3857[0])
-        max_y = max(max_y, start_3857[1], goal_3857[1])
+        min_x = min(start_3857[0], goal_3857[0]) - buffer_m
+        min_y = min(start_3857[1], goal_3857[1]) - buffer_m
+        max_x = max(start_3857[0], goal_3857[0]) + buffer_m
+        max_y = max(start_3857[1], goal_3857[1]) + buffer_m
         
         bounds = (min_x, min_y, max_x, max_y)
         logger.debug(f"Planning bounds: min=({min_x:.0f}, {min_y:.0f}), max=({max_x:.0f}, {max_y:.0f})")

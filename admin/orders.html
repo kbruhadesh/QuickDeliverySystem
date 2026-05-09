@@ -189,6 +189,7 @@
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
+        const API = 'http://localhost:8000/api';
         let orderMapInst = null;
         let pickupMarker = null;
         let deliveryMarker = null;
@@ -211,75 +212,83 @@
             const tbody = document.querySelector('#orders-table tbody');
             const tableContainer = document.getElementById('orders-table-container');
             const emptyState = document.getElementById('orders-empty-state');
+            const token = localStorage.getItem('hdl_admin_token');
 
-            let data = [];
             try {
-                const token = localStorage.getItem('hdl_customer_token');
-                const res = await fetch(`http://localhost:8000/orders/all?token=${token}`);
-                if (res.ok) {
-                    const dbOrders = await res.json();
-                    // map to internal schema
-                    data = dbOrders.map(o => ({
-                        id: 'HDL-' + o.id,
-                        pickup: [17.41, 78.44], // Dummy coords for basic backend schema
-                        delivery: [17.43, 78.40],
-                        weight: o.total_amount ? o.total_amount : 1.5,
-                        status: o.status.toLowerCase(),
-                        assignedDrone: null,
-                        createdAt: new Date().toISOString()
-                    }));
+                let url = `${API}/orders/all?token=${token}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('API Error');
+                
+                let data = await res.json();
+
+                if (filter !== 'all') {
+                    data = data.filter(o => o.status.toLowerCase() === filter.toLowerCase());
+                }
+
+                if (data.length === 0) {
+                    tableContainer.style.display = 'none';
+                    emptyState.style.display = 'block';
+                    window.HDL.UI.showEmptyState('orders-empty-state',
+                        '<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4M12 20V4"/>',
+                        'No orders found', 'There are no orders matching this filter.', null, null);
                 } else {
-                    data = window.HDL.mockData.orders;
+                    tableContainer.style.display = 'block';
+                    emptyState.style.display = 'none';
+
+                    tbody.innerHTML = data.map(o => {
+                        const statusClass = window.HDL.UI.setBadgeColor(o.status);
+                        const pkp = o.pickup_address || `${o.pickup_latitude?.toFixed(3)}, ${o.pickup_longitude?.toFixed(3)}`;
+                        const del = o.delivery_address || `${o.delivery_latitude?.toFixed(3)}, ${o.delivery_longitude?.toFixed(3)}`;
+                        const date = window.HDL.UI.formatDateTime(o.created_at);
+                        const orderNum = o.order_number || o.id.toString().substring(0,8);
+
+                        return `
+                            <tr>
+                                <td><strong>HDL-${orderNum}</strong></td>
+                                <td title="${pkp}">${pkp.length > 20 ? pkp.substring(0,20)+'...' : pkp}</td>
+                                <td title="${del}">${del.length > 20 ? del.substring(0,20)+'...' : del}</td>
+                                <td>${o.package_weight || '1.0'} kg</td>
+                                <td><span class="badge ${statusClass}">${o.status.toUpperCase()}</span></td>
+                                <td>${o.drone_id || 'Waiting...'}</td>
+                                <td>${date}</td>
+                                <td>
+                                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem; margin-right:4px;" onclick="window.location.href='map.html?order=${o.id}'">Track</button>
+                                    ${(o.status.toUpperCase() !== 'DELIVERED' && o.status.toUpperCase() !== 'CANCELLED') ? 
+                                        `<button class="btn btn-danger" style="padding:4px 8px; font-size:0.75rem;" onclick="cancelOrder('${o.id}')">Cancel</button>` : ''}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
                 }
             } catch(e) {
-                data = window.HDL.mockData.orders;
-            }
-
-            if (filter !== 'all') {
-                data = data.filter(o => o.status === filter);
-            }
-
-            if (data.length === 0) {
-                tableContainer.style.display = 'none';
-                emptyState.style.display = 'block';
-                window.HDL.UI.showEmptyState('orders-empty-state',
-                    '<path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4M12 20V4"/>',
-                    'No orders found', 'There are no orders matching this filter.', null, null);
-            } else {
-                tableContainer.style.display = 'block';
-                emptyState.style.display = 'none';
-
-                let html = '';
-                data.forEach(o => {
-                    const statusClass = window.HDL.UI.setBadgeColor(o.status);
-                    const drone = o.assignedDrone || 'Waiting assignment';
-                    const pkp = `${o.pickup[0].toFixed(2)}, ${o.pickup[1].toFixed(2)}`;
-                    const del = `${o.delivery[0].toFixed(2)}, ${o.delivery[1].toFixed(2)}`;
-                    const date = window.HDL.UI.formatDateTime(o.createdAt);
-
-                    html += `
-            <tr>
-              <td><strong>${o.id}</strong></td>
-              <td>${pkp}</td>
-              <td>${del}</td>
-              <td>${o.weight} kg</td>
-              <td><span class="badge ${statusClass}">${o.status.toUpperCase()}</span></td>
-              <td>${drone}</td>
-              <td>${date}</td>
-              <td><button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem;">View</button></td>
-            </tr>
-          `;
-                });
-                tbody.innerHTML = html;
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#EF4444;padding:24px">Failed to load orders from database.</td></tr>';
             }
         }
 
+        async function cancelOrder(id) {
+            const token = localStorage.getItem('hdl_admin_token');
+            window.HDL.UI.showConfirm("Are you sure you want to cancel this order?", async () => {
+                try {
+                    const res = await fetch(`${API}/orders/${id}/status?status=CANCELLED&token=${token}`, {
+                        method: 'PATCH'
+                    });
+                    if (res.ok) {
+                        window.HDL.UI.showToast("Order cancelled", "success");
+                        renderTable(document.querySelector('#order-filters .pill-btn.active').dataset.filter);
+                    } else {
+                        throw new Error('Failed');
+                    }
+                } catch(e) {
+                    window.HDL.UI.showToast("Failed to cancel order", "error");
+                }
+            });
+        }
+
         function initOrderMap() {
-            // Clear previous markers
             document.getElementById('pickup-coord').value = '';
             document.getElementById('delivery-coord').value = '';
             document.getElementById('map-error').style.display = 'none';
-            document.getElementById('weight-error').style.display = 'none';
 
             if (!orderMapInst) {
                 orderMapInst = L.map('order-map').setView([17.3850, 78.4867], 12);
@@ -288,12 +297,10 @@
                 orderMapInst.on('click', (e) => {
                     if (!pickupMarker) {
                         pickupMarker = L.circleMarker(e.latlng, { radius: 8, fillColor: '#22C55E', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(orderMapInst);
-                        document.getElementById('pickup-coord').value = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
+                        document.getElementById('pickup-coord').value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
                     } else if (!deliveryMarker) {
                         deliveryMarker = L.circleMarker(e.latlng, { radius: 8, fillColor: '#EF4444', color: '#fff', weight: 2, fillOpacity: 1 }).addTo(orderMapInst);
-                        document.getElementById('delivery-coord').value = `${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`;
-
-                        // Draw route line
+                        document.getElementById('delivery-coord').value = `${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
                         L.polyline([pickupMarker.getLatLng(), deliveryMarker.getLatLng()], { color: '#8B9AB3', dashArray: '5, 5' }).addTo(orderMapInst);
                     }
                 });
@@ -301,62 +308,46 @@
 
             setTimeout(() => {
                 orderMapInst.invalidateSize();
-                // clear map layers except tile
-                orderMapInst.eachLayer((layer) => {
-                    if (!layer._url) orderMapInst.removeLayer(layer);
-                });
-                pickupMarker = null;
-                deliveryMarker = null;
-            }, 50);
+                orderMapInst.eachLayer((layer) => { if (!layer._url) orderMapInst.removeLayer(layer); });
+                pickupMarker = null; deliveryMarker = null;
+            }, 100);
         }
 
-        function submitOrder() {
+        async function submitOrder() {
             const p = document.getElementById('pickup-coord').value;
             const d = document.getElementById('delivery-coord').value;
             const w = parseFloat(document.getElementById('order-weight').value);
+            const token = localStorage.getItem('hdl_admin_token');
 
-            const mapErr = document.getElementById('map-error');
-            const wErr = document.getElementById('weight-error');
-
-            let valid = true;
             if (!p || !d) {
-                mapErr.style.display = 'block';
-                valid = false;
-            } else {
-                mapErr.style.display = 'none';
+                document.getElementById('map-error').style.display = 'block';
+                return;
             }
 
-            if (w < 0.1 || w > 5.0 || isNaN(w)) {
-                wErr.style.display = 'block';
-                valid = false;
-            } else {
-                wErr.style.display = 'none';
-            }
-
-            if (valid) {
-                const token = localStorage.getItem('hdl_customer_token');
-                fetch(`http://localhost:8000/orders/?token=${token}`, {
+            try {
+                const res = await fetch(`${API}/orders/?token=${token}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         items: [],
-                        pickup_latitude: p.split(',')[0].trim(),
-                        pickup_longitude: p.split(',')[1].trim(),
-                        delivery_latitude: d.split(',')[0].trim(),
-                        delivery_longitude: d.split(',')[1].trim(),
-                        weight: w
+                        pickup_latitude: parseFloat(p.split(',')[0]),
+                        pickup_longitude: parseFloat(p.split(',')[1]),
+                        delivery_latitude: parseFloat(d.split(',')[0]),
+                        delivery_longitude: parseFloat(d.split(',')[1]),
+                        package_weight: w,
+                        package_description: "Admin initiated order"
                     })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    window.HDL.UI.closeModal('new-order-modal');
-                    window.HDL.UI.showToast(`Order created successfully`, 'success');
-                    const activeFilter = document.querySelector('#order-filters .pill-btn.active').dataset.filter;
-                    renderTable(activeFilter);
-                })
-                .catch(err => {
-                    window.HDL.UI.showToast(`Failed to create order`, 'error');
                 });
+
+                if (res.ok) {
+                    window.HDL.UI.closeModal('new-order-modal');
+                    window.HDL.UI.showToast(`Order created`, 'success');
+                    renderTable('all');
+                } else {
+                    throw new Error('Failed');
+                }
+            } catch(err) {
+                window.HDL.UI.showToast(`Failed to create order`, 'error');
             }
         }
     </script>

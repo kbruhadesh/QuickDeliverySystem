@@ -158,6 +158,9 @@
     <script src="js/ui.js"></script>
     <script src="js/router.js"></script>
     <script>
+        const API = 'http://localhost:8000/api';
+        let currentDrones = [];
+
         document.addEventListener('DOMContentLoaded', () => {
             if (window.HDL.Router) window.HDL.Router.init();
             renderDrones();
@@ -165,109 +168,158 @@
 
         async function renderDrones() {
             const tbody = document.querySelector('#drones-table tbody');
+            const token = localStorage.getItem('hdl_admin_token');
             let html = '';
 
             try {
-                const res = await fetch('http://localhost:8000/drones/');
+                const res = await fetch(`${API}/drones/`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
                 if (res.ok) {
-                    const drones = await res.json();
-                    drones.forEach((d, index) => {
-                        const sClass = window.HDL.UI.setBadgeColor(d.status);
-                        const date = 'Just now'; // Assume real-time
-                        
-                        let battClass = '';
-                        if (d.battery < 20) battClass = 'danger';
-                        else if (d.battery < 50) battClass = 'warning';
+                    currentDrones = await res.json();
+                    
+                    if (currentDrones.length === 0) {
+                        html = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-secondary)">No drones found in fleet.</td></tr>';
+                    } else {
+                        currentDrones.forEach((d, index) => {
+                            const status = d.status || 'idle';
+                            const sClass = window.HDL.UI.setBadgeColor(status);
+                            const battery = d.current_battery || d.battery_capacity || 0;
+                            
+                            let battClass = '';
+                            if (battery < 20) battClass = 'danger';
+                            else if (battery < 50) battClass = 'warning';
 
-                        html += `
-                        <tr>
-                            <td><strong>D-${d.id}</strong></td>
-                            <td>HDL Quad</td>
-                            <td>${d.max_payload.toFixed(1)} kg</td>
-                            <td>
-                            <span>${Math.floor(d.battery)}%</span>
-                            <div class="battery-bar-container">
-                                <div class="battery-bar ${battClass}" style="width: ${d.battery}%"></div>
-                            </div>
-                            </td>
-                            <td><span class="badge ${sClass}">${d.status}</span></td>
-                            <td>${date}</td>
-                            <td class="admin-only">
-                            <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem; margin-right:4px;" onclick="openDroneModal(${index})">Edit</button>
-                            <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteDrone(${index})">Delete</button>
-                            </td>
-                        </tr>
-                        `;
-                    });
+                            html += `
+                            <tr>
+                                <td><strong>${d.drone_id}</strong></td>
+                                <td>${d.model}</td>
+                                <td>${d.max_payload?.toFixed(1) || '0.0'} kg</td>
+                                <td>
+                                    <span>${Math.floor(battery)}%</span>
+                                    <div class="battery-bar-container">
+                                        <div class="battery-bar ${battClass}" style="width: ${battery}%"></div>
+                                    </div>
+                                </td>
+                                <td><span class="badge ${sClass}">${status.toUpperCase()}</span></td>
+                                <td>${window.HDL.UI.formatDateTime(d.created_at)}</td>
+                                <td class="admin-only">
+                                    <button class="btn btn-secondary" style="padding:4px 8px; font-size:0.8rem; margin-right:4px;" onclick="openDroneModal(${index})">Edit</button>
+                                    <button class="btn btn-danger" style="padding:4px 8px; font-size:0.8rem;" onclick="deleteDrone('${d.id}')">Delete</button>
+                                </td>
+                            </tr>
+                            `;
+                        });
+                    }
+                } else {
+                    throw new Error('Failed to fetch');
                 }
             } catch(e) {
-                html = '<tr><td colspan="7">Failed to load drones.</td></tr>';
+                html = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger)">Failed to load drones. Is the backend running?</td></tr>';
             }
             tbody.innerHTML = html;
-
             if (window.HDL.Router) window.HDL.Router.applyRoleBasedUI();
         }
 
         function openDroneModal(index = -1) {
             document.getElementById('edit-drone-idx').value = index;
+            const modalTitle = document.getElementById('drone-modal-title');
+            
             if (index === -1) {
-                document.getElementById('drone-modal-title').textContent = 'Add Drone';
+                modalTitle.textContent = 'Add Drone';
                 document.getElementById('drone-id').value = '';
                 document.getElementById('drone-model').value = '';
                 document.getElementById('drone-payload').value = '2.5';
                 document.getElementById('drone-battery').value = '100';
             } else {
-                const d = window.HDL.mockData.drones[index];
-                document.getElementById('drone-modal-title').textContent = 'Edit Drone';
-                document.getElementById('drone-id').value = d.id;
+                const d = currentDrones[index];
+                modalTitle.textContent = 'Edit Drone';
+                document.getElementById('drone-id').value = d.drone_id;
                 document.getElementById('drone-model').value = d.model;
-                document.getElementById('drone-payload').value = d.maxPayload;
-                document.getElementById('drone-battery').value = d.battery;
+                document.getElementById('drone-payload').value = d.max_payload;
+                document.getElementById('drone-battery').value = d.current_battery || d.battery_capacity;
             }
             window.HDL.UI.openModal('drone-modal');
         }
 
-        function saveDrone() {
+        async function saveDrone() {
             const idx = parseInt(document.getElementById('edit-drone-idx').value);
-            const id = document.getElementById('drone-id').value;
-            const model = document.getElementById('drone-model').value;
-            const payload = parseFloat(document.getElementById('drone-payload').value);
-            const battery = parseFloat(document.getElementById('drone-battery').value);
+            const token = localStorage.getItem('hdl_admin_token');
+            
+            const payload = {
+                drone_id: document.getElementById('drone-id').value,
+                model: document.getElementById('drone-model').value,
+                max_payload: parseFloat(document.getElementById('drone-payload').value),
+                max_range: 20.0, // Default range for now
+                battery_capacity: parseInt(document.getElementById('drone-battery').value),
+                current_battery: parseFloat(document.getElementById('drone-battery').value),
+                status: 'idle'
+            };
 
-            if (!id || !model) {
+            if (!payload.drone_id || !payload.model) {
                 window.HDL.UI.showToast("Please fill all required fields", "warning");
                 return;
             }
 
-            if (idx === -1) {
-                window.HDL.mockData.drones.push({
-                    id, model, maxPayload: payload, battery, status: 'available', lastUpdated: new Date().toISOString()
-                });
-                window.HDL.UI.showToast(`Drone ${id} added`, "success");
-            } else {
-                const d = window.HDL.mockData.drones[idx];
-                d.id = id; d.model = model; d.maxPayload = payload; d.battery = battery;
-                d.lastUpdated = new Date().toISOString();
-                window.HDL.UI.showToast(`Drone ${id} updated`, "success");
-            }
+            try {
+                let res;
+                if (idx === -1) {
+                    // Create
+                    res = await fetch(`${API}/admin/drones`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                } else {
+                    // Update
+                    const d = currentDrones[idx];
+                    res = await fetch(`${API}/admin/drones/${d.id}`, {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                }
 
-            window.HDL.UI.closeModal('drone-modal');
-            renderDrones();
+                if (res.ok) {
+                    window.HDL.UI.showToast(idx === -1 ? "Drone added" : "Drone updated", "success");
+                    window.HDL.UI.closeModal('drone-modal');
+                    renderDrones();
+                } else {
+                    const err = await res.json();
+                    throw new Error(err.detail || 'Save failed');
+                }
+            } catch(e) {
+                window.HDL.UI.showToast(e.message, "error");
+            }
         }
 
-        function deleteDrone(index) {
-            const d = window.HDL.mockData.drones[index];
-
-            // Validation edge case: cannot remove active drone
-            if (d.status === 'in-flight' || d.status === 'assigned') {
-                window.HDL.UI.showToast(`Cannot remove an active drone (${d.id})`, "error");
-                return;
-            }
-
-            window.HDL.UI.showConfirm(`Are you sure you want to remove Drone ${d.id}?`, () => {
-                window.HDL.mockData.drones.splice(index, 1);
-                renderDrones();
-                window.HDL.UI.showToast(`Drone ${d.id} removed`, "success");
+        async function deleteDrone(id) {
+            const token = localStorage.getItem('hdl_admin_token');
+            
+            window.HDL.UI.showConfirm(`Are you sure you want to remove this drone?`, async () => {
+                try {
+                    const res = await fetch(`${API}/admin/drones/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    
+                    if (res.ok) {
+                        window.HDL.UI.showToast("Drone removed", "success");
+                        renderDrones();
+                    } else {
+                        const err = await res.json();
+                        throw new Error(err.detail || 'Delete failed');
+                    }
+                } catch(e) {
+                    window.HDL.UI.showToast(e.message, "error");
+                }
             });
         }
     </script>
