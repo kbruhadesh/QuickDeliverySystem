@@ -1,4 +1,5 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
+from uuid import UUID
 
 class UserCreate(BaseModel):
     full_name: str
@@ -7,10 +8,9 @@ class UserCreate(BaseModel):
     password: str
 
 class UserResponse(BaseModel):
-    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
     full_name: str
     email: str
     phone: str
-
-    class Config:
-        from_attributes = True

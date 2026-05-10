@@ -97,7 +97,7 @@ def add_address(address: AddressCreate, token: str, db: Session = Depends(get_db
 def get_addresses(token: str, db: Session = Depends(get_db)):
     user = get_user_from_token(token, db)
     addresses = db.query(Address).filter(Address.user_id == user.id).all()
-    return [AddressResponse.from_orm(addr) for addr in addresses]
+    return [AddressResponse.model_validate(addr) for addr in addresses]
 
 
 # ❌ DELETE ADDRESS

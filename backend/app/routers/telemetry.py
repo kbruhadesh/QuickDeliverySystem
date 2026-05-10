@@ -6,7 +6,7 @@ Save as: backend/app/routers/telemetry.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta
 import uuid
 
@@ -18,6 +18,8 @@ router = APIRouter()
 
 # Pydantic Schemas
 class TelemetryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     drone_id: str
     assignment_id: Optional[str]
@@ -30,10 +32,6 @@ class TelemetryResponse(BaseModel):
     status: Optional[str]
     timestamp: datetime
     
-    class Config:
-        from_attributes = True
-
-
 # API Endpoints
 
 @router.get("/", response_model=List[TelemetryResponse])

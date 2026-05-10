@@ -6,7 +6,7 @@ Save as: backend/app/routers/drones.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 import uuid
 
@@ -18,6 +18,8 @@ router = APIRouter()
 
 # Pydantic Schemas
 class DroneResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     drone_id: str
     model: str
@@ -32,14 +34,6 @@ class DroneResponse(BaseModel):
     speed: Optional[float]
     created_at: datetime
     
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            uuid.UUID: str,
-            datetime: lambda v: v.isoformat() if v else None
-        }
-
-
 class DroneUpdate(BaseModel):
     status: Optional[str] = None
     current_battery: Optional[float] = Field(None, ge=0, le=100)

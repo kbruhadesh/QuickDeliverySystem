@@ -1,7 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from datetime import datetime
-import uuid
+from uuid import UUID
 
 class OrderItemCreate(BaseModel):
     product_id: int
@@ -27,10 +27,13 @@ class OrderUpdate(BaseModel):
     eta_minutes: Optional[float] = None
 
 class OrderResponse(BaseModel):
-    id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
     order_number: Optional[str] = None
-    total_amount: float
-    status: str
+    user_id: Optional[UUID] = None
+    total_amount: float = 0.0
+    status: Optional[str] = None
     pickup_latitude: Optional[float] = None
     pickup_longitude: Optional[float] = None
     pickup_address: Optional[str] = None
@@ -40,12 +43,9 @@ class OrderResponse(BaseModel):
     package_weight: Optional[float] = None
     package_description: Optional[str] = None
     items_summary: Optional[str] = None
-    priority: Optional[str] = "standard"
+    priority: Optional[int] = None
     estimated_delivery_time: Optional[datetime] = None
     actual_delivery_time: Optional[datetime] = None
     route_path: Optional[List[List[float]]] = None
     eta_minutes: Optional[float] = None
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
+    created_at: Optional[datetime] = None

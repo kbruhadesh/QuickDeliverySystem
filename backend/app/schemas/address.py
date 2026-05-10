@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 
@@ -12,6 +12,8 @@ class AddressCreate(BaseModel):
 
 
 class AddressResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     street: str
     city: str
@@ -19,6 +21,3 @@ class AddressResponse(BaseModel):
     pincode: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
-
-    class Config:
-        from_attributes = True

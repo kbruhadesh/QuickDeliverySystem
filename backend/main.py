@@ -11,6 +11,8 @@ import uvicorn
 
 from app.database import get_db, engine, Base
 from app import models
+from app.db_models import address as _address_model, order_item as _order_item_model
+from app.db_models import product as _product_model, store as _store_model  # register auxiliary tables
 from app.routers import orders, drones, assignments, telemetry, admin, auth, address, store
 
 # Create all database tables

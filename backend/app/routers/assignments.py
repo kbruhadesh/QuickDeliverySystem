@@ -6,7 +6,7 @@ Save as: backend/app/routers/assignments.py
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta
 import uuid
 import math
@@ -25,6 +25,8 @@ class AssignmentRequest(BaseModel):
 
 
 class AssignmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     drone_id: str
     order_id: str
@@ -35,10 +37,6 @@ class AssignmentResponse(BaseModel):
     route_path: Optional[List[List[float]]]  # [[lat, lon], ...]
     assigned_at: datetime
     
-    class Config:
-        from_attributes = True
-
-
 class OptimizeRequest(BaseModel):
     order_ids: List[str]
 

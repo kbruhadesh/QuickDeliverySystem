@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+from functools import lru_cache
 
 # Add the simulation module to Python path
 # Try container path first, then relative path for local development
@@ -22,24 +23,64 @@ def haversine(coord1, coord2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+
+def _normalize_path(path):
+    normalized = []
+    for point in path or []:
+        if len(point) < 2:
+            continue
+        normalized.append([float(point[0]), float(point[1])])
+    return normalized
+
+
+def _sample_direct_path(start_lat, start_lon, end_lat, end_lon, spacing_km=1.0):
+    distance_km = haversine((start_lat, start_lon), (end_lat, end_lon))
+    segments = max(2, int(math.ceil(distance_km / spacing_km)))
+    return [
+        [
+            start_lat + (end_lat - start_lat) * (i / segments),
+            start_lon + (end_lon - start_lon) * (i / segments)
+        ]
+        for i in range(segments + 1)
+    ]
+
+
+@lru_cache(maxsize=1)
+def _get_environment_index():
+    from core.environment_index import EnvironmentIndex
+    return EnvironmentIndex()
+
+
 def generate_path(start_lat, start_lon, end_lat, end_lon):
     """
     Calls the real-world-drone-simulation RRTStarPlanner.
-    Returns a list of [lat, lon, alt] waypoints.
+    Returns a list of [lat, lon] waypoints.
     """
     try:
-        from core.environment_index import EnvironmentIndex
         from core.planner import RRTPlanner
-        
-        env_index = EnvironmentIndex()
-        planner = RRTPlanner(env_index)
+
+        direct_distance_km = haversine((start_lat, start_lon), (end_lat, end_lon))
+        distance_m = direct_distance_km * 1000
+        step_size = min(500.0, max(20.0, distance_m / 300.0))
+        max_iterations = max(10000, int((distance_m / step_size) * 120))
+
+        env_index = _get_environment_index()
+        planner = RRTPlanner(
+            env_index,
+            max_iterations=max_iterations,
+            step_size=step_size,
+            goal_bias=0.25
+        )
         route_points = [(start_lat, start_lon), (end_lat, end_lon)]
-        path = planner.plan_route(route_points)
-        return path
+        path = _normalize_path(planner.plan_route(route_points))
+        if len(path) >= 2:
+            return path
     except Exception as e:
         print(f"Integration error generating path: {e}")
-        # Fallback to direct path
-        return [(start_lat, start_lon, 50.0), (end_lat, end_lon, 50.0)]
+
+    # Last-resort fallback: keep enough waypoints for animation/distance instead
+    # of collapsing to a two-point line if the external RRT cannot solve a segment.
+    return _sample_direct_path(start_lat, start_lon, end_lat, end_lon)
 
 def compute_path_distance(route):
     """
